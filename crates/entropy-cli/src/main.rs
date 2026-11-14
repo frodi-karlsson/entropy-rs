@@ -30,8 +30,28 @@ enum Command {
         #[arg(long)]
         fuel: Option<u64>,
     },
+    /// Compile a program to a native executable.
+    Build {
+        file: PathBuf,
+        /// Where to write the output. Defaults to the file name without `.en`, plus `.o` or
+        /// `.clif` for those outputs.
+        #[arg(short)]
+        o: Option<PathBuf>,
+        /// Baked into the executable: 0, or from 0.001 to 100.
+        #[arg(long, default_value = "2", value_parser = rate)]
+        mutation_rate: f32,
+        #[arg(long, value_enum, default_value = "exe")]
+        emit: Emit,
+    },
     /// Print a program's syntax tree or typed HIR.
     Dump { what: Dump, file: PathBuf },
+}
+
+#[derive(Clone, Copy, PartialEq, ValueEnum)]
+enum Emit {
+    Exe,
+    Obj,
+    Clif,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -58,6 +78,12 @@ fn main() -> ExitCode {
             mutation_rate,
             fuel,
         } => run(&file, mutation_rate, seed, fuel),
+        Command::Build {
+            file,
+            o,
+            mutation_rate,
+            emit,
+        } => build(&file, o, mutation_rate, emit),
         Command::Dump { what, file } => dump(what, &file),
     }
 }
@@ -129,6 +155,94 @@ fn run(file: &Path, rate: f32, seed: Option<u64>, fuel: Option<u64>) -> ExitCode
     match entropy_codegen::jit::run(&hir, rate, seed, fuel) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => codegen_failed(&e),
+    }
+}
+
+/// The runtime as a static library, compiled by `build.rs`, and the system libraries it needs.
+const RUNTIME_LIB: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/libentropy_runtime.a"));
+const NATIVE_LIBS: &str = include_str!(concat!(env!("OUT_DIR"), "/native-libs.txt"));
+
+fn build(file: &Path, out: Option<PathBuf>, rate: f32, emit: Emit) -> ExitCode {
+    let hir = match compile(file) {
+        Ok(hir) => hir,
+        Err(code) => return code,
+    };
+    let object = match entropy_codegen::aot::object(&hir, rate) {
+        Ok(object) => object,
+        Err(e) => return codegen_failed(&e),
+    };
+    let out = out.unwrap_or_else(|| {
+        let stem = PathBuf::from(file.file_stem().unwrap_or(file.as_os_str()));
+        match emit {
+            Emit::Exe => stem,
+            Emit::Obj => stem.with_extension("o"),
+            Emit::Clif => stem.with_extension("clif"),
+        }
+    });
+    let written = match emit {
+        Emit::Obj => std::fs::write(&out, &object.bytes),
+        Emit::Clif => std::fs::write(&out, &object.clif),
+        Emit::Exe => return link(&object.bytes, &out),
+    };
+    match written {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("entropy: can't write {}: {e}", out.display());
+            ExitCode::from(3)
+        }
+    }
+}
+
+/// Links the object with the runtime using the system C compiler.
+fn link(object: &[u8], out: &Path) -> ExitCode {
+    let dir = std::env::temp_dir().join(format!("entropy-build-{}", std::process::id()));
+    let result = link_in(&dir, object, out);
+    let _ = std::fs::remove_dir_all(&dir);
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(message) => {
+            eprintln!("entropy: {message}");
+            ExitCode::from(3)
+        }
+    }
+}
+
+fn link_in(dir: &Path, object: &[u8], out: &Path) -> Result<(), String> {
+    let write = |name: &str, bytes: &[u8]| {
+        let path = dir.join(name);
+        std::fs::write(&path, bytes)
+            .map(|()| path)
+            .map_err(|e| format!("can't write {}: {e}", dir.display()))
+    };
+    std::fs::create_dir_all(dir).map_err(|e| format!("can't create {}: {e}", dir.display()))?;
+    let obj = write("program.o", object)?;
+    let lib = write("libentropy_runtime.a", RUNTIME_LIB)?;
+    let cc = std::env::var_os("CC").unwrap_or_else(|| "cc".into());
+    let result = std::process::Command::new(&cc)
+        .arg(obj)
+        .arg(lib)
+        .args(NATIVE_LIBS.split_whitespace())
+        .arg("-o")
+        .arg(out)
+        .output();
+    let output = match result {
+        Ok(output) => output,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => {
+            return Err(format!(
+                "can't find the C linker `{}`. `entropy build` needs one. On macOS, run \
+                 `xcode-select --install`. On Debian or Ubuntu, install `build-essential`.",
+                cc.to_string_lossy()
+            ));
+        }
+        Err(e) => return Err(format!("can't run `{}`: {e}", cc.to_string_lossy())),
+    };
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(format!(
+            "linking failed:\n{}",
+            String::from_utf8_lossy(&output.stderr)
+        ))
     }
 }
 

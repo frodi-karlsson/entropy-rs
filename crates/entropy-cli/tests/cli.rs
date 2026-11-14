@@ -108,3 +108,76 @@ fn run_rejects_externs_for_now() {
         "entropy: externs are not supported yet\n"
     );
 }
+
+/// A fresh output path in the test directory.
+fn out_path(ext: &str) -> String {
+    let dir = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli");
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join(format!("out{}{ext}", NEXT.fetch_add(1, Ordering::Relaxed)));
+    path.to_string_lossy().into_owned()
+}
+
+fn build_good() -> String {
+    let exe = out_path("");
+    let out = entropy(&["build", "--mutation-rate", "0", "-o", &exe], GOOD);
+    assert_eq!(code(&out), 0, "{}", String::from_utf8_lossy(&out.stderr));
+    exe
+}
+
+#[test]
+fn build_writes_an_executable() {
+    let out = Command::new(build_good()).output().unwrap();
+    assert_eq!(code(&out), 0);
+    assert_eq!(out.stdout, b"1");
+    assert!(out.stderr.is_empty());
+}
+
+#[test]
+fn built_executables_check_their_environment() {
+    let exe = build_good();
+    for var in ["ENTROPY_SEED", "ENTROPY_FUEL"] {
+        let out = Command::new(&exe).env(var, "-1").output().unwrap();
+        assert_eq!(code(&out), 2, "{var}");
+        assert_eq!(
+            String::from_utf8_lossy(&out.stderr),
+            format!(
+                "entropy: {var} must be a whole number from 0 to {}, got `-1`\n",
+                u64::MAX
+            )
+        );
+    }
+}
+
+#[test]
+fn build_emits_objects_and_ir() {
+    let obj = out_path(".o");
+    assert_eq!(
+        code(&entropy(&["build", "--emit", "obj", "-o", &obj], GOOD)),
+        0
+    );
+    assert!(std::fs::metadata(&obj).unwrap().len() > 0);
+    let clif = out_path(".clif");
+    assert_eq!(
+        code(&entropy(&["build", "--emit", "clif", "-o", &clif], GOOD)),
+        0
+    );
+    let text = std::fs::read_to_string(&clif).unwrap();
+    assert!(text.contains("call") && text.contains("return"), "{text}");
+}
+
+#[test]
+fn build_without_a_linker_explains() {
+    let dir = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli");
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("no-linker.en");
+    std::fs::write(&file, GOOD).unwrap();
+    let out = Command::new(env!("CARGO_BIN_EXE_entropy"))
+        .args(["build", "-o", &out_path("")])
+        .arg(&file)
+        .env("CC", "/nonexistent/cc")
+        .output()
+        .unwrap();
+    assert_eq!(code(&out), 3);
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("can't find the C linker"), "{stderr}");
+}

@@ -1,7 +1,8 @@
 //! Golden cases in `tests/cases/`. Each `.en` file has header directives and sibling `.stdout`,
 //! `.stderr` and `.exit` files (a missing file means empty output or exit 0).
 //!
-//! Run cases go through the reference evaluator and `entropy run`, and both must match.
+//! Run cases go through the reference evaluator, `entropy run` and a built executable, and all
+//! three must match.
 //!
 //! Directives, one per line at the top of the file:
 //! - `// mode: check` runs `entropy check` only.
@@ -66,11 +67,13 @@ fn root() -> PathBuf {
 }
 
 fn entropy(args: &[&str]) -> Result<Outcome, Failed> {
-    let out = Command::new(env!("CARGO_BIN_EXE_entropy"))
-        .args(args)
-        .current_dir(root())
-        .env("NO_COLOR", "1")
-        .output()?;
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_entropy"));
+    cmd.args(args);
+    outcome(&mut cmd)
+}
+
+fn outcome(cmd: &mut Command) -> Result<Outcome, Failed> {
+    let out = cmd.current_dir(root()).env("NO_COLOR", "1").output()?;
     Ok(Outcome {
         stdout: out.stdout,
         stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
@@ -97,6 +100,28 @@ fn jit(rel: &str, d: &Directives) -> Result<Outcome, Failed> {
         "--fuel",
         &d.fuel.unwrap_or(DEFAULT_FUEL).to_string(),
     ])
+}
+
+/// Builds an executable and runs it. If the build fails, that is the outcome instead.
+fn aot(rel: &str, d: &Directives) -> Result<Outcome, Failed> {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("golden");
+    std::fs::create_dir_all(&dir)?;
+    let exe = dir.join(rel.trim_start_matches("tests/cases/").replace('/', "_"));
+    let exe_arg = exe.to_string_lossy();
+    let rate = d.rate.unwrap_or(2.0).to_string();
+    let build = entropy(&["build", rel, "-o", &exe_arg, "--mutation-rate", &rate])?;
+    if build.exit != 0 {
+        return Ok(build);
+    }
+    if !build.stderr.is_empty() || !build.stdout.is_empty() {
+        return Err(format!("{rel}: build printed output\n{}", describe(&build)).into());
+    }
+    outcome(
+        Command::new(&exe)
+            .env("ENTROPY_SEED", d.seed.to_string())
+            .env("ENTROPY_FUEL", d.fuel.unwrap_or(DEFAULT_FUEL).to_string())
+            .env_remove("ENTROPY_DEBUG_RC"),
+    )
 }
 
 fn reference(rel: &str, src: &str, d: &Directives) -> Outcome {
@@ -179,6 +204,7 @@ fn run_case(path: &Path, rel: &str) -> Result<(), Failed> {
     compare(rel, first_name, &expected, &first)?;
     if !d.check_only {
         compare(rel, "jit", &expected, &jit(rel, &d)?)?;
+        compare(rel, "aot", &expected, &aot(rel, &d)?)?;
     }
     Ok(())
 }

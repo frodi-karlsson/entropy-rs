@@ -6,6 +6,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+links = "entropy_runtime"
 
 [lib]
 name = "entropy_runtime"
