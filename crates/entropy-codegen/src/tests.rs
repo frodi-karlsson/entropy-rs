@@ -31,11 +31,9 @@ fn loop_with_scoped_string() {
 }
 
 #[test]
-fn externs_are_rejected() {
-    let (hir, _) = entropy_sema::analyze("Program a b [ extern f(real); f(1); ]");
-    let mut module = jit::module().unwrap();
-    assert!(matches!(
-        lower(&mut module, &hir.unwrap()),
-        Err(crate::Error::Externs)
+fn extern_calls() {
+    insta::assert_snapshot!(clif(
+        "Program a b [ extern f(real, char, string) returns real; extern g(char) returns char; \
+         extern h(); extern unused(); declare x real; let x = f(1, 2, \"s\"); print g('a'); h(); ]"
     ));
 }

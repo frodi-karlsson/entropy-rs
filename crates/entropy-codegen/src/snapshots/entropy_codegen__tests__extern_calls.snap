@@ -1,0 +1,99 @@
+---
+source: crates/entropy-codegen/src/tests.rs
+expression: "clif(\"Program a b [ extern f(real, char, string) returns real; extern g(char) returns char; \\\n         extern h(); extern unused(); declare x real; let x = f(1, 2, \\\"s\\\"); print g('a'); h(); ]\")"
+---
+function u0:25() {
+    gv0 = symbol colocated userextname25
+    sig0 = (f32)
+    sig1 = ()
+    sig2 = (f32) -> f32
+    sig3 = (f32, f32) -> f32
+    sig4 = (i64)
+    sig5 = (i64)
+    sig6 = (f32) -> i64
+    sig7 = (i64) -> f32
+    sig8 = (i64, i64) -> i64
+    sig9 = (i64)
+    sig10 = (i64) -> i64
+    sig11 = (i64, i64) -> i64
+    sig12 = (f32) -> i64
+    sig13 = (f32) -> i64
+    sig14 = (f32)
+    sig15 = (f32)
+    sig16 = (i64)
+    sig17 = (f32) -> i32
+    sig18 = (i64) -> i64
+    sig19 = (i64)
+    sig20 = ()
+    sig21 = ()
+    sig22 = (f64, i32, i64) -> f64
+    sig23 = (i32) -> i32
+    sig24 = ()
+    fn0 = u0:0 sig0
+    fn1 = u0:1 sig1
+    fn2 = u0:2 sig2
+    fn3 = u0:3 sig3
+    fn4 = u0:4 sig4
+    fn5 = u0:5 sig5
+    fn6 = u0:6 sig6
+    fn7 = u0:7 sig7
+    fn8 = u0:8 sig8
+    fn9 = u0:9 sig9
+    fn10 = u0:10 sig10
+    fn11 = u0:11 sig11
+    fn12 = u0:12 sig12
+    fn13 = u0:13 sig13
+    fn14 = u0:14 sig14
+    fn15 = u0:15 sig15
+    fn16 = u0:16 sig16
+    fn17 = u0:17 sig17
+    fn18 = u0:18 sig18
+    fn19 = u0:19 sig19
+    fn20 = u0:20 sig20
+    fn21 = u0:21 sig21
+    fn22 = u0:22 sig22
+    fn23 = u0:23 sig23
+    fn24 = u0:24 sig24
+
+block0:
+    v0 = f32const 0.0
+    v1 = f32const 0x1.000000p0
+    v2 = f32const 0x1.000000p1
+    v3 = symbol_value.i64 gv0
+    v4 = iconst.i64 1
+    v5 = call fn8(v3, v4)  ; v4 = 1
+    v6 = f32const 0x1.840000p6
+    v7 = call fn6(v6)  ; v6 = 0x1.840000p6
+    v8 = call fn2(v1)  ; v1 = 0x1.000000p0
+    v9 = fpromote.f64 v8
+    v10 = call fn2(v2)  ; v2 = 0x1.000000p1
+    v11 = call fn17(v10)
+    call fn4(v5)
+    call fn9(v5)
+    v12 = call fn18(v5)
+    call fn5(v5)
+    call fn20()
+    v13 = call fn22(v9, v11, v12)
+    call fn21()
+    call fn19(v12)
+    v14 = fdemote.f32 v13
+    v15 = call fn2(v14)
+    call fn4(v7)
+    v16 = call fn7(v7)
+    call fn5(v7)
+    v17 = call fn17(v16)
+    call fn20()
+    v18 = call fn23(v17)
+    call fn21()
+    v19 = fcvt_from_sint.f32 v18
+    v20 = call fn6(v19)
+    v21 = call fn7(v20)
+    call fn15(v21)
+    call fn5(v20)
+    call fn20()
+    call fn24()
+    call fn21()
+    call fn5(v5)
+    call fn5(v7)
+    return
+}

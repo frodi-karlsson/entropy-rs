@@ -17,6 +17,11 @@ pub fn run(
     seed: Option<u64>,
     fuel: Option<u64>,
 ) -> Result<(), Error> {
+    // Symbol resolution for externs arrives with `--dylib`. Until then cranelift-jit would panic
+    // on a symbol it can't find.
+    if !program.externs.is_empty() {
+        return Err(Error::Externs);
+    }
     let mut module = module()?;
     let main = lower(&mut module, program)?.main;
     module.finalize_definitions()?;

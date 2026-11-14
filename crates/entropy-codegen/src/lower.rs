@@ -139,19 +139,37 @@ pub struct Lowered {
     pub main: FuncId,
     /// The function's IR as text, for `--emit clif`.
     pub clif: String,
+    /// The C symbols of the externs the program calls, which the JIT must resolve.
+    pub externs: Vec<String>,
 }
 
 /// Defines `entropy_main() -> void` in `module`.
 pub fn lower<M: Module>(module: &mut M, program: &Program) -> Result<Lowered, Error> {
-    if !program.externs.is_empty() {
-        return Err(Error::Externs);
-    }
     let config = module.target_config();
     let ptr = config.pointer_type();
     let rt_ids = Rt::ALL
         .iter()
         .map(|rt| rt.declare(module))
         .collect::<Result<Vec<_>, _>>()?;
+
+    // Only externs that are called are imported. The linker ignores the rest, so the JIT must too.
+    let mut called = vec![false; program.externs.len()];
+    calls_in(&program.body, &mut called);
+    let mut extern_ids = Vec::new();
+    let mut symbols = Vec::new();
+    for (ext, called) in program.externs.iter().zip(called) {
+        if !called {
+            extern_ids.push(None);
+            continue;
+        }
+        let sig = extern_signature(module, ext);
+        extern_ids.push(Some(module.declare_function(
+            &ext.symbol,
+            Linkage::Import,
+            &sig,
+        )?));
+        symbols.push(ext.symbol.clone());
+    }
 
     // String literal bytes, NUL-terminated so even an empty one has an address.
     let mut strings = Vec::new();
@@ -177,6 +195,10 @@ pub fn lower<M: Module>(module: &mut M, program: &Program) -> Result<Lowered, Er
         .iter()
         .map(|&id| module.declare_func_in_func(id, b.func))
         .collect();
+    let externs = extern_ids
+        .iter()
+        .map(|id| id.map(|id| module.declare_func_in_func(id, b.func)))
+        .collect();
     let strings: Vec<_> = strings
         .iter()
         .map(|&id| module.declare_data_in_func(id, b.func))
@@ -187,6 +209,8 @@ pub fn lower<M: Module>(module: &mut M, program: &Program) -> Result<Lowered, Er
     let mut l = Lower {
         b,
         rt,
+        externs,
+        params: program.externs.iter().map(|e| e.params.clone()).collect(),
         ptr,
         vars: Vec::new(),
         lits: Vec::new(),
@@ -237,7 +261,61 @@ pub fn lower<M: Module>(module: &mut M, program: &Program) -> Result<Lowered, Er
 
     let clif = ctx.func.display().to_string();
     module.define_function(main, &mut ctx)?;
-    Ok(Lowered { main, clif })
+    Ok(Lowered {
+        main,
+        clif,
+        externs: symbols,
+    })
+}
+
+/// The C signature of an extern (spec 4.9).
+fn extern_signature<M: Module>(module: &M, ext: &hir::Extern) -> cranelift_codegen::ir::Signature {
+    let ptr = module.target_config().pointer_type();
+    let c_type = |ty: &hir::Type| {
+        AbiParam::new(match ty {
+            hir::Type::Real => types::F64,
+            hir::Type::Char => types::I32,
+            hir::Type::String => ptr,
+        })
+    };
+    let mut sig = module.make_signature();
+    sig.params.extend(ext.params.iter().map(c_type));
+    sig.returns.extend(ext.returns.iter().map(c_type));
+    sig
+}
+
+/// Marks every extern called in `block`.
+fn calls_in(block: &hir::Block, called: &mut [bool]) {
+    fn expr(e: &Expr, called: &mut [bool]) {
+        match &e.kind {
+            ExprKind::Var(_) | ExprKind::Lit(_) => {}
+            ExprKind::Arith { lhs, rhs, .. } | ExprKind::Concat { lhs, rhs } => {
+                expr(lhs, called);
+                expr(rhs, called);
+            }
+            ExprKind::Call(c) => call(c, called),
+        }
+    }
+    fn call(c: &hir::Call, called: &mut [bool]) {
+        if let Some(flag) = called.get_mut(c.callee.0) {
+            *flag = true;
+        }
+        for arg in &c.args {
+            expr(arg, called);
+        }
+    }
+    for stmt in &block.stmts {
+        match stmt {
+            Stmt::Declare(_) => {}
+            Stmt::Assign { value, .. } | Stmt::Print(value) => expr(value, called),
+            Stmt::If { cond, body } | Stmt::While { cond, body } => {
+                expr(&cond.lhs, called);
+                expr(&cond.rhs, called);
+                calls_in(body, called);
+            }
+            Stmt::Call(c) => call(c, called),
+        }
+    }
 }
 
 /// A value after its consumption step. Objects are owned references.
@@ -252,6 +330,9 @@ enum Val {
 struct Lower<'a> {
     b: FunctionBuilder<'a>,
     rt: Vec<cranelift_codegen::ir::FuncRef>,
+    /// By extern id: the import, or `None` if it is never called, and the parameter types.
+    externs: Vec<Option<cranelift_codegen::ir::FuncRef>>,
+    params: Vec<Vec<hir::Type>>,
     ptr: Type,
     vars: Vec<Variable>,
     lits: Vec<Variable>,
@@ -375,9 +456,59 @@ impl Lower<'_> {
                 self.b.ins().jump(head, &[]);
                 self.switch(done);
             }
-            Stmt::Call(_) => return Err(Error::Externs),
+            // The result, if any, is discarded without being consumed.
+            Stmt::Call(c) => {
+                self.extern_call(c)?;
+            }
         }
         Ok(())
+    }
+
+    /// Calls an extern and returns its raw C result (spec 4.9).
+    fn extern_call(&mut self, c: &hir::Call) -> Result<Option<Value>, Error> {
+        let params = self
+            .params
+            .get(c.callee.0)
+            .cloned()
+            .ok_or(Error::Internal("unknown extern"))?;
+        let callee = self
+            .externs
+            .get(c.callee.0)
+            .copied()
+            .flatten()
+            .ok_or(Error::Internal("extern not imported"))?;
+        // Each argument is consumed and converted before the next one is evaluated (4.3).
+        let mut args = Vec::new();
+        let mut c_strings = Vec::new();
+        for (arg, param) in c.args.iter().zip(&params) {
+            match param {
+                hir::Type::Real => {
+                    let x = self.number(arg)?;
+                    args.push(self.b.ins().fpromote(types::F64, x));
+                }
+                hir::Type::Char => {
+                    let x = self.number(arg)?;
+                    args.push(self.call(Rt::CharToI32, &[x]));
+                }
+                hir::Type::String => {
+                    let Val::Str(p) = self.consume(arg)? else {
+                        return Err(Error::Internal("non-string string argument"));
+                    };
+                    let s = self.call(Rt::StrToCstr, &[p]);
+                    self.release(p);
+                    args.push(s);
+                    c_strings.push(s);
+                }
+            }
+        }
+        self.call0(Rt::Flush, &[]);
+        let inst = self.b.ins().call(callee, &args);
+        let result = self.b.inst_results(inst).first().copied();
+        self.call0(Rt::AfterExtern, &[]);
+        for s in c_strings {
+            self.call0(Rt::CstrFree, &[s]);
+        }
+        Ok(result)
     }
 
     fn switch(&mut self, block: Block) {
@@ -456,7 +587,24 @@ impl Lower<'_> {
                 self.call0(Rt::StrConsume, &[s]);
                 return Ok(Val::Str(s));
             }
-            ExprKind::Call(_) => return Err(Error::Externs),
+            ExprKind::Call(c) => {
+                let result = self
+                    .extern_call(c)?
+                    .ok_or(Error::Internal("void call used as a value"))?;
+                // A return value is a temporary, consumed by its parent like an operator's result.
+                return Ok(match e.ty {
+                    hir::Type::Real => {
+                        let x = self.b.ins().fdemote(types::F32, result);
+                        Val::Real(self.call(Rt::ConsumeTmp, &[x]))
+                    }
+                    hir::Type::Char => {
+                        let x = self.b.ins().fcvt_from_sint(types::F32, result);
+                        let p = self.call(Rt::CharNew, &[x]);
+                        Val::Char(p, self.call(Rt::CharConsume, &[p]))
+                    }
+                    hir::Type::String => return Err(Error::Internal("string returned by extern")),
+                });
+            }
         };
         Ok(match e.ty {
             hir::Type::Real => {
