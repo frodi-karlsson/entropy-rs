@@ -8,6 +8,7 @@
 # - The smoke job calls `./.github/workflows/smoke.yml` (dist writes `$/`, which actionlint
 #   can't parse yet) without inheriting secrets.
 # - The container, Windows long paths and system package steps are gone. No target uses them.
+# - The Homebrew job runs in the `release` environment, which holds HOMEBREW_TAP_TOKEN.
 # - shellcheck fixes, a bot identity for tap commits, and version comments on action pins.
 #
 # Copyright 2022-2024, axodotdev
@@ -308,6 +309,8 @@ jobs:
       - plan
       - host
     runs-on: "ubuntu-22.04"
+    # HOMEBREW_TAP_TOKEN lives in this environment, which only `v*` tags can use.
+    environment: release
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       PLAN: ${{ needs.plan.outputs.val }}
