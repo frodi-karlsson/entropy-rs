@@ -13,3 +13,8 @@ name = "entropy_reference"
 
 [lints]
 workspace = true
+
+[dependencies]
+entropy-lang-runtime = { path = "../entropy-runtime", version = "0.1.0" }
+entropy-lang-sema = { path = "../entropy-sema", version = "0.1.0" }
+entropy-lang-syntax = { path = "../entropy-syntax", version = "0.1.0" }

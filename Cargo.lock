@@ -160,6 +160,11 @@ dependencies = [
 [[package]]
 name = "entropy-reference"
 version = "0.1.0"
+dependencies = [
+ "entropy-lang-runtime",
+ "entropy-lang-sema",
+ "entropy-lang-syntax",
+]
 
 [[package]]
 name = "equivalent"
