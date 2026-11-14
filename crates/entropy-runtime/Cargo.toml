@@ -1,0 +1,14 @@
+[package]
+name = "entropy-lang-runtime"
+description = "Decay runtime for the Entropy language"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "entropy_runtime"
+
+[lints]
+workspace = true
