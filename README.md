@@ -1,7 +1,80 @@
 # entropy-rs
 
-A compiler for [Entropy](https://entropy-lang.org/) ([esolangs](https://esolangs.org/wiki/Entropy)),
-Daniel Temkin's language in which data decays every time it is used.
+A compiler for [Entropy](https://entropy-lang.org/), Daniel Temkin's programming language where
+data falls apart a little every time you use it. It builds native executables, runs programs
+straight from source, and lets them call C libraries.
+
+![The word ENTROPY as glowing points, blurring and scattering as it decays](assets/dissolve.gif)
+
+This is [examples/dissolve](examples/dissolve). The whole word is one string, and every time the
+program reads it, every point drifts a little.
+
+Here is the same Mandelbrot program run twice. The first run has decay turned off.
+
+```text
+                                          #####
+                                           ####
+                                   ################
+                                    ##################
+                                  #####################
+                           #     ######################
+                       #######  #######################
+                     ###################################
+     ################################################
+                     ###################################
+                       #######  #######################
+                           #     ######################
+                                  #####################
+                                    ##################
+                                   ################
+                                           ####
+                                          #####
+```
+
+The second run lets it decay. Every number in the program drifted a little each time it was read,
+and the picture melted.
+
+```text
+                                             ###
+                                     ################# ##
+                                    ###################
+                                    #####################
+                                    #####################
+                        ########   ####################
+                      ########### ###################
+                        ####       ###############
+                         ##        ################
+                                 ###################
+                             # ##################
+                                 ################
+                                  ###########
+                                    ###  #
+                                      # #
+```
+
+Try it yourself:
+
+```sh
+entropy run examples/mandelbrot/ascii.en --mutation-rate 0.05 --seed 1
+```
+
+## Install
+
+```sh
+brew install frodi-karlsson/tap/entropy-lang
+```
+
+Or:
+
+```sh
+curl -LsSf https://github.com/frodi-karlsson/entropy-rs/releases/latest/download/entropy-lang-installer.sh | sh
+cargo install entropy-lang --locked
+```
+
+Prebuilt binaries cover macOS and Linux on arm64 and x86_64. Building native executables also
+needs a C linker (Xcode Command Line Tools, or `build-essential`).
+
+## Hello, World
 
 ```entropy
 Program hello world [
@@ -9,50 +82,41 @@ Program hello world [
 ]
 ```
 
-Most runs print it intact. Some don't: seed 0 prints `Hellm, World!` and seed 3 prints
-`Hello,!World!`.
-
-## Install
-
 ```sh
-curl -LsSf https://github.com/frodi-karlsson/entropy-rs/releases/latest/download/entropy-lang-installer.sh | sh
-brew install frodi-karlsson/tap/entropy-lang
-cargo install entropy-lang --locked
+entropy run hello.en             # run it now
+entropy build hello.en -o hello  # or make a native executable
 ```
 
-Prebuilt binaries cover macOS and Linux on arm64 and x86_64. `check` and `run` need nothing else.
-`build` needs a system C linker (Xcode Command Line Tools, or `build-essential`).
+Most runs print `Hello, World!`. Some print `Hellm, World!` or `Hfllo, World!`. Read the same
+string over and over and it keeps getting worse:
 
-## Use
-
-```sh
-entropy check hello.en                  # report errors, run nothing
-entropy run hello.en                    # compile in memory and run
-entropy build hello.en -o hello         # write a native executable
-entropy dump ast|hir hello.en           # print the syntax tree or typed program
+```entropy
+Program hello again [
+    string greeting = "Hello, World!\n";
+    real i = 0;
+    while i < 8 [
+        print greeting;
+        let i += 1;
+    ]
+]
 ```
 
-`run` takes `--seed N`, `--mutation-rate R` and `--fuel N`. `build` bakes the rate into the
-executable, which reads `ENTROPY_SEED` and `ENTROPY_FUEL` instead.
+```text
+$ entropy run again.en --seed 25
+Hello, World!
+Hello, World!
+Hello, Woqld!
+Hello, Woqld!
+Hello, Vorld!
+Helko, Voqlc!
+Helko, Voqlc!
+Helko, Voqlc!
+```
 
-- **Rate** is how far one decay step can move a value. The default is 2. `0` turns decay off.
-  Anything from 0.001 to 100 is allowed.
-- **Seed** fixes the randomness. The same program, rate, seed and fuel give byte-identical output
-  from `run` and from a built executable. Without a seed, the OS picks one.
-- **Fuel** caps the number of decay steps. Running out prints `entropy: out of fuel` and exits with
-  code 4. There is no cap by default.
-
-Exit codes: 0 success, 1 compile errors, 2 bad usage, 3 link or load failure, 4 out of fuel, 101
-internal error.
-
-## The language
-
-A program is a header and a block. There are three types: `real` (an f32 value), and `char` and
-`string`, which are shared objects.
+## Count to zero, if you can
 
 ```entropy
 Program examples countdown [
-    # Declarations come in two forms.
     declare count real;
     let count = 3;
     string label = " left\n";
@@ -63,31 +127,37 @@ Program examples countdown [
 ]
 ```
 
-At seed 1 this prints four lines, not three. The count never lands on exactly 0: its last value is
-`0.031002156`.
+```text
+$ entropy run countdown.en --seed 1
+3.0897207 left
+2.0250254 left
+1.0693203 left
+0.031002156 left
+```
 
-- Statements: `declare`, `type name = value;`, `let` (with `=`, `+=`, `-=`, `*=`, `/=` or `%=`),
-  `print`, `if`, `while`, and calls to externs. Blocks use `[ ]`.
-- Operators: `+ - * / %` on numbers, `+` to join strings (with strings, chars or reals), and
-  `< > <= >=` in conditions. Comparisons can't be chained or stored. There is no `==`, no logical
-  operators and no unary minus: write `0 - 1`.
-- Comments: `//`, `#` and `/* */`. Names are case-insensitive. Keywords are reserved.
+It counted down from 3 and printed four lines. Each subtraction was a little off, so after three
+steps the count was 0.03, not 0, and the loop went around once more.
 
-### Decay
+## How decay works
 
-Every read of a value takes one decay step, and the step stays. A step adds or subtracts
-`rate / k` for a random `k` from 1 to 255. This applies to variables, to the right-hand side of an
-assignment, to temporaries like `a + b`, and to literals: each literal in the source has its own
-hidden slot, so the `0` in `while count > 0` drifts a little on every pass. A string decays one step
-per character, and a char displays as the nearest code point.
+Every time a value is read, it moves a small random amount, and the change sticks. Numbers drift.
+Letters slide to nearby letters. Even the literal `0` in `while count > 0` drifts a little on every
+pass.
 
-Values are read left to right, each one fully before the next. That order fixes the random draws,
-which is why a seed reproduces a run exactly.
+Three options control it:
 
-### Externs
+| Option | What it does |
+| --- | --- |
+| `--mutation-rate R` | How far one step can move a value. Default 2. `0` turns decay off. |
+| `--seed N` | Replays the exact same run. Without it, every run is different. |
+| `--fuel N` | Stops after N decay steps, with exit code 4. |
 
-`extern` calls C functions. Values decay while they're in Entropy and arrive in C as they were when
-passed: a `real` as a `double`, a `char` as an `int32_t` code point, a `string` as UTF-8.
+A built executable keeps its rate and reads `ENTROPY_SEED` and `ENTROPY_FUEL` from the environment.
+The same seed gives the same output from `run` and from a built executable.
+
+## Calling C
+
+Programs can call C functions. Entropy's decay doesn't reach inside libraries.
 
 ```entropy
 Program examples roots [
@@ -96,28 +166,46 @@ Program examples roots [
 ]
 ```
 
-`run` finds symbols in each `--dylib PATH`, then in the process and libm. `build` takes `-l` and
-`-L` like a C compiler. Externs must not be variadic. `examples/mandelbrot` draws a PPM through a C
-`plot` function.
+`run` finds functions in each `--dylib PATH`, then in the process and libm. `build` takes `-l` and
+`-L` like a C compiler. [examples/mandelbrot](examples/mandelbrot) uses this to draw a full colour
+image. [examples/dissolve](examples/dissolve) draws the animation at the top
+of this page.
 
-## Where this implementation defines behaviour
+## The language in brief
 
-The written spec leaves some things open. These are the rules here.
+There are three types: `real` (a number), `char` and `string`. A program is a header and a block.
 
-- Parentheses group as written, and precedence is `* / %` over `+ -` over comparisons.
-- Compound assignment really computes: `let x += e` is `let x = x + e`. Bitwise compound operators
-  are rejected.
-- Every read decays the stored value, including reals and real literals.
-- All arithmetic works between any numeric types: `* / %`, `<=` and `>=` included.
-- Reading a variable before it is assigned is a compile error.
-- Names are case-insensitive everywhere.
-- A char that isn't a valid code point (NaN, infinity, a surrogate, out of range) displays as
-  U+FFFD.
-- Reals print in their shortest round-trip form: `0.1`, `inf`, `NaN`, `-0`.
-- A string's cells are Unicode scalar values, so an emoji is one cell.
-- The left operand is consumed before the right one is evaluated.
-- `#` comments and `type name = value;` declarations work, as on entropy-lang.org.
-- Randomness is seedable, and fuel can cap a run.
+- Declare with `declare x real;` or `real x = 1;`. Assign with `let`, which also takes `+=`, `-=`,
+  `*=`, `/=` and `%=`.
+- Control flow is `if` and `while`. Blocks use `[ ]`.
+- `+` adds numbers and joins strings. Comparisons are `< > <= >=`. There is no `==`, since values
+  are never exactly equal anyway.
+- Comments are `//`, `#` and `/* */`. Names ignore case.
+
+The full language is described at [entropy-lang.org](https://entropy-lang.org/) and on
+[esolangs.org](https://esolangs.org/wiki/Entropy). `entropy check FILE` reports errors without
+running anything.
+
+## Details
+
+The descriptions on entropy-lang.org and esolangs.org leave some things open. These are the rules
+here.
+
+- Precedence is `* / %` over `+ -` over comparisons. Parentheses group as written.
+- `let x += e` means `let x = x + e`. Bitwise compound operators are rejected.
+- Every read decays the stored value, including real literals. A string decays one step per
+  character, and a char shows as the nearest character.
+- Values are read left to right, each fully before the next. This is what makes a seed reproducible.
+- All arithmetic works between any numeric types.
+- Reading a variable before assigning it is a compile error.
+- A char that isn't a valid character (NaN, infinity, out of range) shows as U+FFFD.
+- Reals print in their shortest exact form: `0.1`, `inf`, `NaN`, `-0`.
+- An emoji is one character in a string.
+- Externs must not be variadic. A `real` arrives as a `double`, a `char` as an `int32_t` code
+  point, a `string` as UTF-8.
+
+Exit codes: 0 success, 1 compile errors, 2 bad usage, 3 link or load failure, 4 out of fuel, 101
+internal error.
 
 ## Licence
 
