@@ -13,3 +13,8 @@ path = "src/main.rs"
 
 [lints]
 workspace = true
+
+[dependencies]
+clap = { version = "4.6.7", features = ["derive"] }
+entropy-lang-sema = { path = "../entropy-sema", version = "0.1.0" }
+entropy-lang-syntax = { path = "../entropy-syntax", version = "0.1.0" }
