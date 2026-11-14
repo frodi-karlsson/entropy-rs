@@ -152,15 +152,6 @@ pub extern "C" fn ent_fini() {
     let _ = std::io::stderr().flush();
 }
 
-/// # Safety
-/// `slot` must point to a live f32.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn ent_consume_real(slot: *mut f32) -> f32 {
-    // SAFETY: generated code passes the address of one of its stack slots.
-    let slot = unsafe { slot.as_mut() }.unwrap_or_else(|| bug("null slot"));
-    with(|s| s.rt.consume_real(slot))
-}
-
 #[unsafe(no_mangle)]
 pub extern "C" fn ent_consume_tmp(mut v: f32) -> f32 {
     with(|s| s.rt.consume_real(&mut v))

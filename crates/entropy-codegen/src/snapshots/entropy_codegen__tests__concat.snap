@@ -1,0 +1,82 @@
+---
+source: crates/entropy-codegen/src/tests.rs
+expression: "clif(\"Program a b [ declare s string; let s = \\\"hi\\\" + 'c'; print s + 1; ]\")"
+---
+function u0:17() {
+    gv0 = symbol colocated userextname17
+    sig0 = (f32)
+    sig1 = ()
+    sig2 = (f32) -> f32
+    sig3 = (f32, f32) -> f32
+    sig4 = (i64)
+    sig5 = (i64)
+    sig6 = (f32) -> i64
+    sig7 = (i64) -> f32
+    sig8 = (i64, i64) -> i64
+    sig9 = (i64)
+    sig10 = (i64) -> i64
+    sig11 = (i64, i64) -> i64
+    sig12 = (f32) -> i64
+    sig13 = (f32) -> i64
+    sig14 = (f32)
+    sig15 = (f32)
+    sig16 = (i64)
+    fn0 = u0:0 sig0
+    fn1 = u0:1 sig1
+    fn2 = u0:2 sig2
+    fn3 = u0:3 sig3
+    fn4 = u0:4 sig4
+    fn5 = u0:5 sig5
+    fn6 = u0:6 sig6
+    fn7 = u0:7 sig7
+    fn8 = u0:8 sig8
+    fn9 = u0:9 sig9
+    fn10 = u0:10 sig10
+    fn11 = u0:11 sig11
+    fn12 = u0:12 sig12
+    fn13 = u0:13 sig13
+    fn14 = u0:14 sig14
+    fn15 = u0:15 sig15
+    fn16 = u0:16 sig16
+
+block0:
+    v0 = iconst.i64 0
+    v1 = symbol_value.i64 gv0
+    v2 = iconst.i64 2
+    v3 = call fn8(v1, v2)  ; v2 = 2
+    v4 = f32const 0x1.8c0000p6
+    v5 = call fn6(v4)  ; v4 = 0x1.8c0000p6
+    v6 = f32const 0x1.000000p0
+    call fn5(v0)  ; v0 = 0
+    v7 = iconst.i64 0
+    call fn4(v3)
+    call fn9(v3)
+    v8 = call fn10(v3)
+    call fn5(v3)
+    call fn4(v5)
+    v9 = call fn7(v5)
+    call fn5(v5)
+    v10 = call fn13(v9)
+    v11 = call fn11(v8, v10)
+    call fn5(v8)
+    call fn5(v10)
+    call fn9(v11)
+    call fn5(v7)  ; v7 = 0
+    call fn4(v11)
+    call fn9(v11)
+    v12 = call fn10(v11)
+    call fn5(v11)
+    v13 = call fn2(v6)  ; v6 = 0x1.000000p0
+    v14 = call fn12(v13)
+    v15 = call fn11(v12, v14)
+    call fn5(v12)
+    call fn5(v14)
+    call fn9(v15)
+    call fn16(v15)
+    call fn5(v15)
+    call fn5(v11)
+    v16 = iconst.i64 0
+    call fn5(v3)
+    call fn5(v5)
+    return
+}
