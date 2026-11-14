@@ -139,6 +139,9 @@ version = "0.1.0"
 [[package]]
 name = "entropy-lang-sema"
 version = "0.1.0"
+dependencies = [
+ "entropy-lang-syntax",
+]
 
 [[package]]
 name = "entropy-lang-syntax"

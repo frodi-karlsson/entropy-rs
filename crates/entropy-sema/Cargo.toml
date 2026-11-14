@@ -12,3 +12,6 @@ name = "entropy_sema"
 
 [lints]
 workspace = true
+
+[dependencies]
+entropy-lang-syntax = { path = "../entropy-syntax", version = "0.1.0" }

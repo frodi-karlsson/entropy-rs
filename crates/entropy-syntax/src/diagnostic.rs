@@ -35,6 +35,21 @@ pub mod code {
     pub const NESTING_TOO_DEEP: Code = Code("E0012");
     pub const EXTERN_NOT_AT_TOP_LEVEL: Code = Code("E0013");
     pub const UNARY_MINUS: Code = Code("E0014");
+    pub const UNDECLARED: Code = Code("E0015");
+    pub const ALREADY_DECLARED: Code = Code("E0016");
+    pub const OPERAND_TYPE: Code = Code("E0017");
+    pub const COMPARISON_AS_VALUE: Code = Code("E0018");
+    pub const CONDITION_NOT_COMPARISON: Code = Code("E0019");
+    pub const ASSIGNMENT_TYPE: Code = Code("E0020");
+    pub const UNASSIGNED: Code = Code("E0021");
+    pub const NOT_AN_EXTERN: Code = Code("E0022");
+    pub const ARGUMENT_COUNT: Code = Code("E0023");
+    pub const ARGUMENT_TYPE: Code = Code("E0024");
+    pub const VOID_AS_VALUE: Code = Code("E0025");
+    pub const STRING_RETURN: Code = Code("E0026");
+    pub const RESERVED_EXTERN_NAME: Code = Code("E0027");
+    pub const EXTERN_AS_VARIABLE: Code = Code("E0028");
+    pub const VARIADIC_EXTERN: Code = Code("W0001");
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
