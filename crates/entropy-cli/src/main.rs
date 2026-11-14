@@ -17,6 +17,19 @@ struct Cli {
 enum Command {
     /// Check a program for errors without running it.
     Check { file: PathBuf },
+    /// Compile a program in memory and run it.
+    Run {
+        file: PathBuf,
+        /// Seed for the decay RNG. Without one, the OS picks.
+        #[arg(long)]
+        seed: Option<u64>,
+        /// How far each decay step can move a value: 0, or from 0.001 to 100.
+        #[arg(long, default_value = "2", value_parser = rate)]
+        mutation_rate: f32,
+        /// Stop with exit code 4 after this many decay steps.
+        #[arg(long)]
+        fuel: Option<u64>,
+    },
     /// Print a program's syntax tree or typed HIR.
     Dump { what: Dump, file: PathBuf },
 }
@@ -39,7 +52,22 @@ fn main() -> ExitCode {
     let cli = Cli::parse();
     match cli.command {
         Command::Check { file } => check(&file),
+        Command::Run {
+            file,
+            seed,
+            mutation_rate,
+            fuel,
+        } => run(&file, mutation_rate, seed, fuel),
         Command::Dump { what, file } => dump(what, &file),
+    }
+}
+
+fn rate(s: &str) -> Result<f32, String> {
+    let r: f32 = s.parse().map_err(|_| format!("`{s}` is not a number"))?;
+    if r == 0.0 || (0.001..=100.0).contains(&r) {
+        Ok(r)
+    } else {
+        Err("must be 0, or from 0.001 to 100".to_string())
     }
 }
 
@@ -70,6 +98,37 @@ fn check(file: &Path) -> ExitCode {
         ExitCode::from(1)
     } else {
         ExitCode::SUCCESS
+    }
+}
+
+/// Reads and checks a program, printing any diagnostics.
+fn compile(file: &Path) -> Result<entropy_sema::hir::Program, ExitCode> {
+    let src = read(file)?;
+    let (hir, diagnostics) = entropy_sema::analyze(&src);
+    let failed = report(&diagnostics, file, &src);
+    match hir {
+        Some(hir) if !failed => Ok(hir),
+        _ => Err(ExitCode::from(1)),
+    }
+}
+
+/// Exit 3 for a program codegen can't handle yet or a failed link, 101 for our own bugs.
+fn codegen_failed(e: &entropy_codegen::Error) -> ExitCode {
+    eprintln!("entropy: {e}");
+    match e {
+        entropy_codegen::Error::Internal(_) => ExitCode::from(101),
+        _ => ExitCode::from(3),
+    }
+}
+
+fn run(file: &Path, rate: f32, seed: Option<u64>, fuel: Option<u64>) -> ExitCode {
+    let hir = match compile(file) {
+        Ok(hir) => hir,
+        Err(code) => return code,
+    };
+    match entropy_codegen::jit::run(&hir, rate, seed, fuel) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => codegen_failed(&e),
     }
 }
 

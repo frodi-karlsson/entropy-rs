@@ -76,3 +76,35 @@ fn dump() {
         1
     );
 }
+
+#[test]
+fn run_prints_output() {
+    let out = entropy(&["run", "--mutation-rate", "0"], GOOD);
+    assert_eq!(code(&out), 0);
+    assert_eq!(out.stdout, b"1");
+}
+
+#[test]
+fn run_rejects_a_bad_rate() {
+    for rate in ["-1", "0.0001", "101", "x"] {
+        let out = entropy(&["run", "--mutation-rate", rate], GOOD);
+        assert_eq!(code(&out), 2, "rate {rate}");
+    }
+}
+
+#[test]
+fn run_reports_errors() {
+    let out = entropy(&["run"], "Program a b [ print y; ]");
+    assert_eq!(code(&out), 1);
+    assert!(out.stdout.is_empty());
+}
+
+#[test]
+fn run_rejects_externs_for_now() {
+    let out = entropy(&["run"], "Program a b [ extern f(real); f(1); ]");
+    assert_eq!(code(&out), 3);
+    assert_eq!(
+        String::from_utf8_lossy(&out.stderr),
+        "entropy: externs are not supported yet\n"
+    );
+}

@@ -433,6 +433,8 @@ name = "entropy-lang"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "entropy-lang-codegen",
+ "entropy-lang-runtime",
  "entropy-lang-sema",
  "entropy-lang-syntax",
  "entropy-reference",

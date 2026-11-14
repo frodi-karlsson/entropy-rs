@@ -1,10 +1,33 @@
 //! In-process compilation for `entropy run`.
 
+#![allow(unsafe_code)]
+
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::default_libcall_names;
 use entropy_runtime::capi;
+use entropy_sema::hir::Program;
 
-use crate::{Error, Rt};
+use crate::{Error, Rt, lower};
+
+/// Compiles and runs a program in this process. Running out of fuel or losing stdout exits the
+/// process (spec 5).
+pub fn run(
+    program: &Program,
+    rate: f32,
+    seed: Option<u64>,
+    fuel: Option<u64>,
+) -> Result<(), Error> {
+    let mut module = module()?;
+    let main = lower(&mut module, program)?.main;
+    module.finalize_definitions()?;
+    let code = module.get_finalized_function(main);
+    // SAFETY: `entropy_main` was defined with the `() -> void` C signature.
+    let entropy_main = unsafe { std::mem::transmute::<*const u8, extern "C" fn()>(code) };
+    capi::init(rate, seed, fuel);
+    entropy_main();
+    capi::ent_fini();
+    Ok(())
+}
 
 /// A JIT module that can call every runtime function.
 pub fn module() -> Result<JITModule, Error> {

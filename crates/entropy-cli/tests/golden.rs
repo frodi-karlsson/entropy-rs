@@ -1,6 +1,8 @@
 //! Golden cases in `tests/cases/`. Each `.en` file has header directives and sibling `.stdout`,
 //! `.stderr` and `.exit` files (a missing file means empty output or exit 0).
 //!
+//! Run cases go through the reference evaluator and `entropy run`, and both must match.
+//!
 //! Directives, one per line at the top of the file:
 //! - `// mode: check` runs `entropy check` only.
 //! - `// seed: N`, `// rate: R` and `// fuel: N` set up a run (fuel defaults to 1000000).
@@ -63,9 +65,9 @@ fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
-fn check(rel: &str) -> Result<Outcome, Failed> {
+fn entropy(args: &[&str]) -> Result<Outcome, Failed> {
     let out = Command::new(env!("CARGO_BIN_EXE_entropy"))
-        .args(["check", rel])
+        .args(args)
         .current_dir(root())
         .env("NO_COLOR", "1")
         .output()?;
@@ -78,6 +80,23 @@ fn check(rel: &str) -> Result<Outcome, Failed> {
             .and_then(|c| u8::try_from(c).ok())
             .unwrap_or(255),
     })
+}
+
+fn check(rel: &str) -> Result<Outcome, Failed> {
+    entropy(&["check", rel])
+}
+
+fn jit(rel: &str, d: &Directives) -> Result<Outcome, Failed> {
+    entropy(&[
+        "run",
+        rel,
+        "--seed",
+        &d.seed.to_string(),
+        "--mutation-rate",
+        &d.rate.unwrap_or(2.0).to_string(),
+        "--fuel",
+        &d.fuel.unwrap_or(DEFAULT_FUEL).to_string(),
+    ])
 }
 
 fn reference(rel: &str, src: &str, d: &Directives) -> Outcome {
@@ -146,27 +165,34 @@ fn describe(o: &Outcome) -> String {
 fn run_case(path: &Path, rel: &str) -> Result<(), Failed> {
     let src = std::fs::read_to_string(path)?;
     let d = directives(&src)?;
-    let actual = if d.check_only {
+    let first = if d.check_only {
         check(rel)?
     } else {
         reference(rel, &src, &d)
     };
     let by_hand = rel.contains("/by-hand/");
     if std::env::var_os("UPDATE_GOLDEN").is_some() && !by_hand {
-        bless(path, &actual)?;
-        return Ok(());
+        bless(path, &first)?;
     }
     let expected = read_expected(path);
-    if actual == expected {
-        Ok(())
-    } else {
-        Err(format!(
-            "{rel}: reference output differs\n=== expected ===\n{}\n=== actual ===\n{}",
-            describe(&expected),
-            describe(&actual)
-        )
-        .into())
+    let first_name = if d.check_only { "check" } else { "reference" };
+    compare(rel, first_name, &expected, &first)?;
+    if !d.check_only {
+        compare(rel, "jit", &expected, &jit(rel, &d)?)?;
     }
+    Ok(())
+}
+
+fn compare(rel: &str, path: &str, expected: &Outcome, actual: &Outcome) -> Result<(), Failed> {
+    if actual == expected {
+        return Ok(());
+    }
+    Err(format!(
+        "{rel}: {path} output differs\n=== expected ===\n{}\n=== actual ===\n{}",
+        describe(expected),
+        describe(actual)
+    )
+    .into())
 }
 
 fn cases(dir: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
