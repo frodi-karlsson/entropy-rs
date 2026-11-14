@@ -669,4 +669,130 @@ break""#
         let (tokens, _) = lex("ab ");
         assert_eq!(tokens.last().map(|t| t.span), Some(Span::new(3, 3)));
     }
+
+    /// Each diagnostic as `(code, start, end)`.
+    fn error_spans(src: &str) -> Vec<(&'static str, usize, usize)> {
+        let (_, diagnostics) = lex(src);
+        diagnostics
+            .iter()
+            .map(|d| (d.code.0, d.span.start, d.span.end))
+            .collect()
+    }
+
+    #[test]
+    fn diagnostic_spans() {
+        assert_eq!(error_spans("a @"), [("E0001", 2, 3)]);
+        assert_eq!(error_spans("x \"abc"), [("E0002", 2, 3)]);
+        assert_eq!(error_spans("x 'a"), [("E0003", 2, 3)]);
+        assert_eq!(error_spans("a /* b"), [("E0004", 2, 4)]);
+        assert_eq!(error_spans(r#""a\qb""#), [("E0005", 2, 4)]);
+        assert_eq!(error_spans(r#""\u12""#), [("E0005", 1, 3)]);
+        assert_eq!(error_spans("x 'ab'"), [("E0006", 2, 6)]);
+        assert_eq!(error_spans("x .5"), [("E0007", 2, 4)]);
+        assert_eq!(error_spans("1."), [("E0007", 0, 2)]);
+        assert_eq!(error_spans("x 1e39"), [("E0008", 2, 6)]);
+    }
+
+    #[test]
+    fn token_spans() {
+        let (tokens, _) = lex("let x += 1.5;");
+        let spans: Vec<_> = tokens.iter().map(|t| (t.span.start, t.span.end)).collect();
+        assert_eq!(spans, [(0, 3), (4, 5), (6, 8), (9, 12), (12, 13), (13, 13)]);
+    }
+
+    #[test]
+    fn comment_markers_inside_strings() {
+        assert_eq!(
+            kinds(r##""// no" "# no" "/* no */""##),
+            [
+                Str("// no".into()),
+                Str("# no".into()),
+                Str("/* no */".into()),
+                Eof
+            ]
+        );
+    }
+
+    #[test]
+    fn comment_at_end_of_file() {
+        assert_eq!(kinds("a // end"), [ident("a"), Eof]);
+        assert_eq!(kinds("a #"), [ident("a"), Eof]);
+    }
+
+    #[test]
+    fn unicode_whitespace() {
+        assert_eq!(
+            kinds("a\u{a0}b\u{2003}c\u{3000}d"),
+            [ident("a"), ident("b"), ident("c"), ident("d"), Eof]
+        );
+    }
+
+    #[test]
+    fn numbers_with_extra_dots() {
+        assert_eq!(
+            errors("1.5.3"),
+            (vec!["E0007"], vec![Number(1.5), Number(0.0), Eof])
+        );
+        assert_eq!(errors("1..2").0, ["E0007", "E0007"]);
+    }
+
+    #[test]
+    fn raw_newline_char() {
+        assert_eq!(kinds("'\n'"), [Char('\n'), Eof]);
+    }
+
+    #[test]
+    fn escapes_cut_off_by_end_of_file() {
+        assert_eq!(errors("'\\").0, ["E0003"]);
+        assert_eq!(errors("\"\\").0, ["E0002"]);
+        assert_eq!(errors("\"\\u").0, ["E0005", "E0002"]);
+    }
+
+    /// Strings built mostly from characters the lexer treats specially.
+    fn lexer_soup() -> impl proptest::strategy::Strategy<Value = String> {
+        proptest::string::string_regex(
+            r#"([a-zA-Z_0-9.eE+\-*/%<>=&|^\[\]();,#'"\\u \n\t]|\u{feff}|é|\u{301}|😀|\u{a0}){0,40}"#,
+        )
+        .unwrap_or_else(|e| panic!("bad regex: {e}"))
+    }
+
+    fn check_invariants(src: &str) {
+        let (tokens, diagnostics) = lex(src);
+        let valid = |s: Span| {
+            s.start <= s.end
+                && s.end <= src.len()
+                && src.is_char_boundary(s.start)
+                && src.is_char_boundary(s.end)
+        };
+        for t in &tokens {
+            assert!(valid(t.span), "bad token span {t:?} in {src:?}");
+        }
+        for d in &diagnostics {
+            assert!(valid(d.span), "bad diagnostic span {d:?} in {src:?}");
+        }
+        for pair in tokens.windows(2) {
+            assert!(
+                pair[0].span.end <= pair[1].span.start,
+                "overlap {pair:?} in {src:?}"
+            );
+        }
+        let eofs = tokens.iter().filter(|t| t.kind == Eof).count();
+        assert_eq!(eofs, 1);
+        assert_eq!(
+            tokens.last().map(|t| (&t.kind, t.span)),
+            Some((&Eof, Span::new(src.len(), src.len())))
+        );
+    }
+
+    proptest::proptest! {
+        #[test]
+        fn invariants_hold_for_any_string(src in proptest::prelude::any::<String>()) {
+            check_invariants(&src);
+        }
+
+        #[test]
+        fn invariants_hold_for_lexer_soup(src in lexer_soup()) {
+            check_invariants(&src);
+        }
+    }
 }
