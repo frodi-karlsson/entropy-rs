@@ -2,7 +2,7 @@
 //! `.stderr` and `.exit` files (a missing file means empty output or exit 0).
 //!
 //! Run cases go through the reference evaluator, `entropy run` and a built executable, and all
-//! three must match.
+//! three must match. Runs that exit 0 then repeat with `ENTROPY_DEBUG_RC=1` to check for leaks.
 //!
 //! Directives, one per line at the top of the file:
 //! - `// mode: check` runs `entropy check` only.
@@ -89,8 +89,18 @@ fn check(rel: &str) -> Result<Outcome, Failed> {
     entropy(&["check", rel])
 }
 
-fn jit(rel: &str, d: &Directives) -> Result<Outcome, Failed> {
-    entropy(&[
+/// Sets `ENTROPY_DEBUG_RC` for a leak-check run, and makes sure it is unset otherwise.
+fn debug_rc(cmd: &mut Command, on: bool) -> &mut Command {
+    if on {
+        cmd.env("ENTROPY_DEBUG_RC", "1")
+    } else {
+        cmd.env_remove("ENTROPY_DEBUG_RC")
+    }
+}
+
+fn jit(rel: &str, d: &Directives, leak_check: bool) -> Result<Outcome, Failed> {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_entropy"));
+    cmd.args([
         "run",
         rel,
         "--seed",
@@ -99,11 +109,12 @@ fn jit(rel: &str, d: &Directives) -> Result<Outcome, Failed> {
         &d.rate.unwrap_or(2.0).to_string(),
         "--fuel",
         &d.fuel.unwrap_or(DEFAULT_FUEL).to_string(),
-    ])
+    ]);
+    outcome(debug_rc(&mut cmd, leak_check))
 }
 
-/// Builds an executable and runs it. If the build fails, that is the outcome instead.
-fn aot(rel: &str, d: &Directives) -> Result<Outcome, Failed> {
+/// Builds an executable. If the build fails, its outcome is what gets compared instead.
+fn build(rel: &str, d: &Directives) -> Result<Result<PathBuf, Outcome>, Failed> {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("golden");
     std::fs::create_dir_all(&dir)?;
     let exe = dir.join(rel.trim_start_matches("tests/cases/").replace('/', "_"));
@@ -111,17 +122,19 @@ fn aot(rel: &str, d: &Directives) -> Result<Outcome, Failed> {
     let rate = d.rate.unwrap_or(2.0).to_string();
     let build = entropy(&["build", rel, "-o", &exe_arg, "--mutation-rate", &rate])?;
     if build.exit != 0 {
-        return Ok(build);
+        return Ok(Err(build));
     }
     if !build.stderr.is_empty() || !build.stdout.is_empty() {
         return Err(format!("{rel}: build printed output\n{}", describe(&build)).into());
     }
-    outcome(
-        Command::new(&exe)
-            .env("ENTROPY_SEED", d.seed.to_string())
-            .env("ENTROPY_FUEL", d.fuel.unwrap_or(DEFAULT_FUEL).to_string())
-            .env_remove("ENTROPY_DEBUG_RC"),
-    )
+    Ok(Ok(exe))
+}
+
+fn aot(exe: &Path, d: &Directives, leak_check: bool) -> Result<Outcome, Failed> {
+    let mut cmd = Command::new(exe);
+    cmd.env("ENTROPY_SEED", d.seed.to_string())
+        .env("ENTROPY_FUEL", d.fuel.unwrap_or(DEFAULT_FUEL).to_string());
+    outcome(debug_rc(&mut cmd, leak_check))
 }
 
 fn reference(rel: &str, src: &str, d: &Directives) -> Outcome {
@@ -202,11 +215,34 @@ fn run_case(path: &Path, rel: &str) -> Result<(), Failed> {
     let expected = read_expected(path);
     let first_name = if d.check_only { "check" } else { "reference" };
     compare(rel, first_name, &expected, &first)?;
-    if !d.check_only {
-        compare(rel, "jit", &expected, &jit(rel, &d)?)?;
-        compare(rel, "aot", &expected, &aot(rel, &d)?)?;
+    if d.check_only {
+        return Ok(());
+    }
+    let out = jit(rel, &d, false)?;
+    compare(rel, "jit", &expected, &out)?;
+    if out.exit == 0 {
+        no_leaks(rel, "jit", &jit(rel, &d, true)?)?;
+    }
+    match build(rel, &d)? {
+        Err(build) => compare(rel, "build", &expected, &build)?,
+        Ok(exe) => {
+            let out = aot(&exe, &d, false)?;
+            compare(rel, "aot", &expected, &out)?;
+            if out.exit == 0 {
+                no_leaks(rel, "aot", &aot(&exe, &d, true)?)?;
+            }
+        }
     }
     Ok(())
+}
+
+/// A run with `ENTROPY_DEBUG_RC=1` must end cleanly with every object freed. Runs that stop
+/// early (out of fuel) leak by design, so only runs that exit 0 are checked.
+fn no_leaks(rel: &str, path: &str, out: &Outcome) -> Result<(), Failed> {
+    if out.exit == 0 && out.stderr.ends_with("entropy: 0 live objects\n") {
+        return Ok(());
+    }
+    Err(format!("{rel}: {path} leak check failed\n{}", describe(out)).into())
 }
 
 fn compare(rel: &str, path: &str, expected: &Outcome, actual: &Outcome) -> Result<(), Failed> {
