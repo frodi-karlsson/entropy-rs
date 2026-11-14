@@ -99,13 +99,45 @@ fn run_reports_errors() {
     assert!(out.stdout.is_empty());
 }
 
+const SQRT: &str = "Program a b [ extern sqrt(real) returns real; print sqrt(16); ]";
+const MISSING: &str =
+    "Program a b [ extern no_such_function_anywhere(); no_such_function_anywhere(); ]";
+
 #[test]
-fn run_rejects_externs_for_now() {
-    let out = entropy(&["run"], "Program a b [ extern f(real); f(1); ]");
+fn run_finds_libm_with_no_flags() {
+    let out = entropy(&["run", "--mutation-rate", "0"], SQRT);
+    assert_eq!(code(&out), 0, "{}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(out.stdout, b"4");
+}
+
+#[test]
+fn run_reports_a_missing_extern() {
+    let out = entropy(&["run"], MISSING);
     assert_eq!(code(&out), 3);
     assert_eq!(
         String::from_utf8_lossy(&out.stderr),
-        "entropy: externs are not supported yet\n"
+        "entropy: can't find extern `no_such_function_anywhere`. Pass the library that defines \
+         it with --dylib.\n"
+    );
+}
+
+#[test]
+fn run_ignores_externs_that_are_never_called() {
+    let out = entropy(
+        &["run"],
+        "Program a b [ extern no_such_function_anywhere(); ]",
+    );
+    assert_eq!(code(&out), 0, "{}", String::from_utf8_lossy(&out.stderr));
+}
+
+#[test]
+fn run_reports_a_bad_dylib() {
+    let out = entropy(&["run", "--dylib", "/nonexistent/libx.so"], SQRT);
+    assert_eq!(code(&out), 3);
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.starts_with("entropy: can't open /nonexistent/libx.so"),
+        "{stderr}"
     );
 }
 
@@ -163,6 +195,26 @@ fn build_emits_objects_and_ir() {
     );
     let text = std::fs::read_to_string(&clif).unwrap();
     assert!(text.contains("call") && text.contains("return"), "{text}");
+}
+
+#[test]
+fn build_links_libm_with_no_flags() {
+    let exe = out_path("");
+    let out = entropy(&["build", "--mutation-rate", "0", "-o", &exe], SQRT);
+    assert_eq!(code(&out), 0, "{}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(Command::new(exe).output().unwrap().stdout, b"4");
+}
+
+#[test]
+fn build_reports_a_missing_extern() {
+    let out = entropy(&["build", "-o", &out_path("")], MISSING);
+    assert_eq!(code(&out), 3);
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.starts_with("entropy: linking failed")
+            && stderr.contains("no_such_function_anywhere"),
+        "{stderr}"
+    );
 }
 
 #[test]

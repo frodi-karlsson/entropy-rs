@@ -2,27 +2,36 @@
 
 #![allow(unsafe_code)]
 
+use std::path::PathBuf;
+
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::default_libcall_names;
 use entropy_runtime::capi;
 use entropy_sema::hir::Program;
+use libloading::os::unix::Library;
 
-use crate::{Error, Rt, lower};
+use crate::{Error, Rt, extern_symbols, lower};
 
 /// Compiles and runs a program in this process. Running out of fuel or losing stdout exits the
-/// process (spec 5).
+/// process (spec 5). Externs are looked up in `dylibs`, then in this process, then in libm.
 pub fn run(
     program: &Program,
     rate: f32,
     seed: Option<u64>,
     fuel: Option<u64>,
+    dylibs: &[PathBuf],
 ) -> Result<(), Error> {
-    // Symbol resolution for externs arrives with `--dylib`. Until then cranelift-jit would panic
-    // on a symbol it can't find.
-    if !program.externs.is_empty() {
-        return Err(Error::Externs);
+    let libraries = open(dylibs)?;
+    let mut symbols = Vec::new();
+    for name in extern_symbols(program) {
+        let address = libraries
+            .iter()
+            // SAFETY: only the address is read. The call's types come from the extern declaration.
+            .find_map(|lib| unsafe { lib.get::<*const u8>(&name) }.ok().map(|s| *s))
+            .ok_or_else(|| Error::MissingSymbol(name.clone()))?;
+        symbols.push((name, address));
     }
-    let mut module = module()?;
+    let mut module = module(&symbols)?;
     let main = lower(&mut module, program)?.main;
     module.finalize_definitions()?;
     let code = module.get_finalized_function(main);
@@ -31,14 +40,41 @@ pub fn run(
     capi::init(rate, seed, fuel);
     entropy_main();
     capi::ent_fini();
+    // The libraries stay open until here, because the program calls into them.
+    drop(libraries);
     Ok(())
 }
 
-/// A JIT module that can call every runtime function.
-pub fn module() -> Result<JITModule, Error> {
+/// The libraries to search, in order.
+fn open(dylibs: &[PathBuf]) -> Result<Vec<Library>, Error> {
+    let mut libraries = Vec::new();
+    for path in dylibs {
+        // A bare file name would make dlopen search the system paths instead of this directory.
+        let path = std::path::absolute(path).unwrap_or_else(|_| path.clone());
+        // SAFETY: loading a library runs its initialisers. The user asked for this one.
+        let lib = unsafe { Library::new(&path) }
+            .map_err(|e| Error::Dylib(path.clone(), e.to_string()))?;
+        libraries.push(lib);
+    }
+    libraries.push(Library::this());
+    // On Linux the `entropy` binary may not link libm at all.
+    if cfg!(target_os = "linux") {
+        // SAFETY: libm has no initialisers with side effects.
+        if let Ok(lib) = unsafe { Library::new("libm.so.6") } {
+            libraries.push(lib);
+        }
+    }
+    Ok(libraries)
+}
+
+/// A JIT module that can call every runtime function and the given externs.
+pub fn module(externs: &[(String, *const u8)]) -> Result<JITModule, Error> {
     let mut builder = JITBuilder::with_flags(&[("opt_level", "speed")], default_libcall_names())?;
     for rt in Rt::ALL {
         builder.symbol(rt.name(), address(rt));
+    }
+    for (name, address) in externs {
+        builder.symbol(name, *address);
     }
     Ok(JITModule::new(builder))
 }

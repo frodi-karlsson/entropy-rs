@@ -29,6 +29,9 @@ enum Command {
         /// Stop with exit code 4 after this many decay steps.
         #[arg(long)]
         fuel: Option<u64>,
+        /// A shared library to search for externs, before this process and libm.
+        #[arg(long)]
+        dylib: Vec<PathBuf>,
     },
     /// Compile a program to a native executable.
     Build {
@@ -42,6 +45,12 @@ enum Command {
         mutation_rate: f32,
         #[arg(long, value_enum, default_value = "exe")]
         emit: Emit,
+        /// A library to link, for externs.
+        #[arg(short = 'l')]
+        lib: Vec<String>,
+        /// A directory to search for `-l` libraries.
+        #[arg(short = 'L')]
+        lib_dir: Vec<PathBuf>,
     },
     /// Print a program's syntax tree or typed HIR.
     Dump { what: Dump, file: PathBuf },
@@ -77,13 +86,16 @@ fn main() -> ExitCode {
             seed,
             mutation_rate,
             fuel,
-        } => run(&file, mutation_rate, seed, fuel),
+            dylib,
+        } => run(&file, mutation_rate, seed, fuel, &dylib),
         Command::Build {
             file,
             o,
             mutation_rate,
             emit,
-        } => build(&file, o, mutation_rate, emit),
+            lib,
+            lib_dir,
+        } => build(&file, o, mutation_rate, emit, &Libs { lib, lib_dir }),
         Command::Dump { what, file } => dump(what, &file),
     }
 }
@@ -147,12 +159,18 @@ fn codegen_failed(e: &entropy_codegen::Error) -> ExitCode {
     }
 }
 
-fn run(file: &Path, rate: f32, seed: Option<u64>, fuel: Option<u64>) -> ExitCode {
+fn run(
+    file: &Path,
+    rate: f32,
+    seed: Option<u64>,
+    fuel: Option<u64>,
+    dylibs: &[PathBuf],
+) -> ExitCode {
     let hir = match compile(file) {
         Ok(hir) => hir,
         Err(code) => return code,
     };
-    match entropy_codegen::jit::run(&hir, rate, seed, fuel) {
+    match entropy_codegen::jit::run(&hir, rate, seed, fuel, dylibs) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => codegen_failed(&e),
     }
@@ -162,7 +180,13 @@ fn run(file: &Path, rate: f32, seed: Option<u64>, fuel: Option<u64>) -> ExitCode
 const RUNTIME_LIB: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/libentropy_runtime.a"));
 const NATIVE_LIBS: &str = include_str!(concat!(env!("OUT_DIR"), "/native-libs.txt"));
 
-fn build(file: &Path, out: Option<PathBuf>, rate: f32, emit: Emit) -> ExitCode {
+/// Libraries to link, from `-l` and `-L`.
+struct Libs {
+    lib: Vec<String>,
+    lib_dir: Vec<PathBuf>,
+}
+
+fn build(file: &Path, out: Option<PathBuf>, rate: f32, emit: Emit, libs: &Libs) -> ExitCode {
     let hir = match compile(file) {
         Ok(hir) => hir,
         Err(code) => return code,
@@ -182,7 +206,7 @@ fn build(file: &Path, out: Option<PathBuf>, rate: f32, emit: Emit) -> ExitCode {
     let written = match emit {
         Emit::Obj => std::fs::write(&out, &object.bytes),
         Emit::Clif => std::fs::write(&out, &object.clif),
-        Emit::Exe => return link(&object.bytes, &out),
+        Emit::Exe => return link(&object.bytes, &out, libs),
     };
     match written {
         Ok(()) => ExitCode::SUCCESS,
@@ -194,9 +218,9 @@ fn build(file: &Path, out: Option<PathBuf>, rate: f32, emit: Emit) -> ExitCode {
 }
 
 /// Links the object with the runtime using the system C compiler.
-fn link(object: &[u8], out: &Path) -> ExitCode {
+fn link(object: &[u8], out: &Path, libs: &Libs) -> ExitCode {
     let dir = std::env::temp_dir().join(format!("entropy-build-{}", std::process::id()));
-    let result = link_in(&dir, object, out);
+    let result = link_in(&dir, object, out, libs);
     let _ = std::fs::remove_dir_all(&dir);
     match result {
         Ok(()) => ExitCode::SUCCESS,
@@ -207,7 +231,7 @@ fn link(object: &[u8], out: &Path) -> ExitCode {
     }
 }
 
-fn link_in(dir: &Path, object: &[u8], out: &Path) -> Result<(), String> {
+fn link_in(dir: &Path, object: &[u8], out: &Path, libs: &Libs) -> Result<(), String> {
     let write = |name: &str, bytes: &[u8]| {
         let path = dir.join(name);
         std::fs::write(&path, bytes)
@@ -221,6 +245,9 @@ fn link_in(dir: &Path, object: &[u8], out: &Path) -> Result<(), String> {
     let result = std::process::Command::new(&cc)
         .arg(obj)
         .arg(lib)
+        // User libraries come before the system ones they may need, such as `-lm`.
+        .args(libs.lib_dir.iter().map(|d| format!("-L{}", d.display())))
+        .args(libs.lib.iter().map(|l| format!("-l{l}")))
         .args(NATIVE_LIBS.split_whitespace())
         .arg("-o")
         .arg(out)

@@ -3,7 +3,7 @@ use crate::{jit, lower};
 fn clif(src: &str) -> String {
     let (hir, diagnostics) = entropy_sema::analyze(src);
     assert!(diagnostics.is_empty(), "{diagnostics:?}");
-    let mut module = jit::module().unwrap();
+    let mut module = jit::module(&[]).unwrap();
     let clif = lower(&mut module, &hir.unwrap()).unwrap().clif;
     // The calling convention depends on the host. The rest is the same on every 64-bit host.
     clif.replace(" apple_aarch64", "").replace(" system_v", "")

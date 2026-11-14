@@ -139,8 +139,6 @@ pub struct Lowered {
     pub main: FuncId,
     /// The function's IR as text, for `--emit clif`.
     pub clif: String,
-    /// The C symbols of the externs the program calls, which the JIT must resolve.
-    pub externs: Vec<String>,
 }
 
 /// Defines `entropy_main() -> void` in `module`.
@@ -156,7 +154,6 @@ pub fn lower<M: Module>(module: &mut M, program: &Program) -> Result<Lowered, Er
     let mut called = vec![false; program.externs.len()];
     calls_in(&program.body, &mut called);
     let mut extern_ids = Vec::new();
-    let mut symbols = Vec::new();
     for (ext, called) in program.externs.iter().zip(called) {
         if !called {
             extern_ids.push(None);
@@ -168,7 +165,6 @@ pub fn lower<M: Module>(module: &mut M, program: &Program) -> Result<Lowered, Er
             Linkage::Import,
             &sig,
         )?));
-        symbols.push(ext.symbol.clone());
     }
 
     // String literal bytes, NUL-terminated so even an empty one has an address.
@@ -261,11 +257,20 @@ pub fn lower<M: Module>(module: &mut M, program: &Program) -> Result<Lowered, Er
 
     let clif = ctx.func.display().to_string();
     module.define_function(main, &mut ctx)?;
-    Ok(Lowered {
-        main,
-        clif,
-        externs: symbols,
-    })
+    Ok(Lowered { main, clif })
+}
+
+/// The C symbols of the externs a program calls, which the JIT must resolve.
+pub fn extern_symbols(program: &Program) -> Vec<String> {
+    let mut called = vec![false; program.externs.len()];
+    calls_in(&program.body, &mut called);
+    program
+        .externs
+        .iter()
+        .zip(called)
+        .filter(|(_, called)| *called)
+        .map(|(ext, _)| ext.symbol.clone())
+        .collect()
 }
 
 /// The C signature of an extern (spec 4.9).
