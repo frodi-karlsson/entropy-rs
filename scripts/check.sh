@@ -1,5 +1,5 @@
 #!/bin/sh
-# Every static check CI runs. Usage: scripts/check.sh
+# Every check CI runs: static checks, then tests. Usage: scripts/check.sh
 # Tools: cargo install cargo-deny zizmor --locked; brew install actionlint (or go install).
 set -eu
 cd "$(dirname "$0")/.."
@@ -21,3 +21,4 @@ run cargo clippy --workspace --all-targets --locked -- -D warnings
 run cargo deny check
 run actionlint
 run zizmor --quiet .github/workflows
+run cargo test --workspace --locked

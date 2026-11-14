@@ -33,5 +33,4 @@ This covers docs, comments, commit messages, PRs and replies.
 - All decay logic lives in `entropy-runtime`.
 - User input never causes a panic.
 - Every behaviour change comes with a golden test.
-- Before calling work done: `scripts/check.sh` (every static check) and `cargo test --workspace`
-  pass.
+- Before calling work done: `scripts/check.sh` passes (static checks and tests).
