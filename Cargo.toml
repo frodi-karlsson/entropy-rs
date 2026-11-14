@@ -8,6 +8,9 @@ edition = "2024"
 rust-version = "1.100"
 license = "MIT"
 repository = "https://github.com/frodi-karlsson/entropy-rs"
+homepage = "https://github.com/frodi-karlsson/entropy-rs"
+keywords = ["esolang", "entropy", "compiler", "cranelift", "jit"]
+categories = ["compilers", "command-line-utilities"]
 
 [workspace.lints.rust]
 unsafe_code = "deny"
