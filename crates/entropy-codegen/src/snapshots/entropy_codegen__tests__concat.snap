@@ -2,8 +2,8 @@
 source: crates/entropy-codegen/src/tests.rs
 expression: "clif(\"Program a b [ declare s string; let s = \\\"hi\\\" + 'c'; print s + 1; ]\")"
 ---
-function u0:17() {
-    gv0 = symbol colocated userextname17
+function u0:22() {
+    gv0 = symbol colocated userextname22
     sig0 = (f32)
     sig1 = ()
     sig2 = (f32) -> f32
@@ -21,6 +21,11 @@ function u0:17() {
     sig14 = (f32)
     sig15 = (f32)
     sig16 = (i64)
+    sig17 = (f32) -> i32
+    sig18 = (i64) -> i64
+    sig19 = (i64)
+    sig20 = ()
+    sig21 = ()
     fn0 = u0:0 sig0
     fn1 = u0:1 sig1
     fn2 = u0:2 sig2
@@ -38,6 +43,11 @@ function u0:17() {
     fn14 = u0:14 sig14
     fn15 = u0:15 sig15
     fn16 = u0:16 sig16
+    fn17 = u0:17 sig17
+    fn18 = u0:18 sig18
+    fn19 = u0:19 sig19
+    fn20 = u0:20 sig20
+    fn21 = u0:21 sig21
 
 block0:
     v0 = iconst.i64 0

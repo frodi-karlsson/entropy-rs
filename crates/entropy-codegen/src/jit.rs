@@ -57,5 +57,10 @@ fn address(rt: Rt) -> *const u8 {
         Rt::PrintReal => capi::ent_print_real as *const u8,
         Rt::PrintChar => capi::ent_print_char as *const u8,
         Rt::PrintStr => capi::ent_print_str as *const u8,
+        Rt::CharToI32 => capi::ent_char_to_i32 as *const u8,
+        Rt::StrToCstr => capi::ent_str_to_cstr as *const u8,
+        Rt::CstrFree => capi::ent_cstr_free as *const u8,
+        Rt::Flush => capi::ent_flush as *const u8,
+        Rt::AfterExtern => capi::ent_after_extern as *const u8,
     }
 }

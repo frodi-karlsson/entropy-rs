@@ -8,6 +8,7 @@
 
 #![allow(unsafe_code)]
 
+use std::ffi::{CString, c_char};
 use std::io::{Stdout, Write};
 use std::sync::Mutex;
 
@@ -116,6 +117,7 @@ fn parse_env(name: &str, value: Option<&std::ffi::OsStr>) -> Result<Option<u64>,
 
 unsafe extern "C" {
     fn signal(signum: i32, handler: usize) -> usize;
+    fn fflush(stream: *mut std::ffi::c_void) -> i32;
 }
 
 const SIGPIPE: i32 = 13;
@@ -283,10 +285,81 @@ pub unsafe extern "C" fn ent_print_str(o: *mut Obj) {
     with(|s| s.rt.print_str(st));
 }
 
+// Extern calls (spec 4.9).
+
+/// The code point a char argument passes to C.
+#[unsafe(no_mangle)]
+pub extern "C" fn ent_char_to_i32(v: f32) -> i32 {
+    crate::display_char(v) as i32
+}
+
+/// The displayed text of a string, cut at its first NUL, since C can't see past one.
+fn c_string(s: &StrObj) -> CString {
+    let text = s.text();
+    let text = text.split('\0').next().unwrap_or_default();
+    CString::new(text).unwrap_or_default()
+}
+
+/// A string argument for C, valid until `ent_cstr_free`.
+///
+/// # Safety
+/// `o` must be a string object the caller holds a reference to.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn ent_str_to_cstr(o: *mut Obj) -> *mut c_char {
+    // SAFETY: per this function's contract.
+    let st = unsafe { obj(o) }.str_ref().unwrap_or_else(|e| rc(e));
+    c_string(st).into_raw()
+}
+
+/// # Safety
+/// `p` must be NULL or come from `ent_str_to_cstr`, and not be freed already.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn ent_cstr_free(p: *mut c_char) {
+    if !p.is_null() {
+        // SAFETY: per this function's contract.
+        drop(unsafe { CString::from_raw(p) });
+    }
+}
+
+/// Flushes our output before C writes its own.
+#[unsafe(no_mangle)]
+pub extern "C" fn ent_flush() {
+    with(|s| s.rt.flush());
+}
+
+/// Flushes whatever C wrote through stdio before we print again.
+#[unsafe(no_mangle)]
+pub extern "C" fn ent_after_extern() {
+    // SAFETY: fflush(NULL) flushes every open stdio stream and has no other effect.
+    unsafe { fflush(std::ptr::null_mut()) };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::ffi::OsStr;
+
+    #[test]
+    fn char_arguments() {
+        assert_eq!(ent_char_to_i32(65.0), 65);
+        assert_eq!(ent_char_to_i32(65.4), 65);
+        assert_eq!(ent_char_to_i32(f32::NAN), 0xFFFD);
+        assert_eq!(ent_char_to_i32(-1.0), 0xFFFD);
+        assert_eq!(ent_char_to_i32(55_296.0), 0xFFFD);
+    }
+
+    #[test]
+    fn string_arguments_stop_at_nul() {
+        let c = |s: &str| c_string(&StrObj::from_text(s));
+        assert_eq!(c("hé"), CString::new("hé").unwrap());
+        assert_eq!(c("a\0b"), CString::new("a").unwrap());
+        assert_eq!(c(""), CString::new("").unwrap());
+        // A cell that drifted to 0.4 displays as NUL too.
+        assert_eq!(
+            c_string(&StrObj(vec![104.0, 0.4, 105.0])),
+            CString::new("h").unwrap()
+        );
+    }
 
     #[test]
     fn env_values() {

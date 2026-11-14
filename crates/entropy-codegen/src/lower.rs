@@ -32,17 +32,23 @@ pub enum Rt {
     PrintReal,
     PrintChar,
     PrintStr,
+    CharToI32,
+    StrToCstr,
+    CstrFree,
+    Flush,
+    AfterExtern,
 }
 
-/// A parameter or return type: an f32, or a pointer-sized integer (an object or a length).
+/// A parameter or return type: an f32, an i32, or a pointer-sized integer (an object or a length).
 #[derive(Clone, Copy)]
 enum Ty {
     F,
+    I,
     P,
 }
 
 impl Rt {
-    pub const ALL: [Rt; 17] = [
+    pub const ALL: [Rt; 22] = [
         Rt::Init,
         Rt::Fini,
         Rt::ConsumeTmp,
@@ -60,6 +66,11 @@ impl Rt {
         Rt::PrintReal,
         Rt::PrintChar,
         Rt::PrintStr,
+        Rt::CharToI32,
+        Rt::StrToCstr,
+        Rt::CstrFree,
+        Rt::Flush,
+        Rt::AfterExtern,
     ];
 
     pub fn name(self) -> &'static str {
@@ -81,21 +92,27 @@ impl Rt {
             Rt::PrintReal => "ent_print_real",
             Rt::PrintChar => "ent_print_char",
             Rt::PrintStr => "ent_print_str",
+            Rt::CharToI32 => "ent_char_to_i32",
+            Rt::StrToCstr => "ent_str_to_cstr",
+            Rt::CstrFree => "ent_cstr_free",
+            Rt::Flush => "ent_flush",
+            Rt::AfterExtern => "ent_after_extern",
         }
     }
 
     fn types(self) -> (&'static [Ty], &'static [Ty]) {
-        use Ty::{F, P};
+        use Ty::{F, I, P};
         match self {
             Rt::Init | Rt::PrintReal | Rt::PrintChar => (&[F], &[]),
-            Rt::Fini => (&[], &[]),
+            Rt::Fini | Rt::Flush | Rt::AfterExtern => (&[], &[]),
             Rt::ConsumeTmp => (&[F], &[F]),
             Rt::Fmod => (&[F, F], &[F]),
-            Rt::Retain | Rt::Release | Rt::StrConsume | Rt::PrintStr => (&[P], &[]),
+            Rt::Retain | Rt::Release | Rt::StrConsume | Rt::PrintStr | Rt::CstrFree => (&[P], &[]),
             Rt::CharNew | Rt::StrFromReal | Rt::StrFromChar => (&[F], &[P]),
             Rt::CharConsume => (&[P], &[F]),
             Rt::StrLit | Rt::StrConcat => (&[P, P], &[P]),
-            Rt::StrSnapshot => (&[P], &[P]),
+            Rt::StrSnapshot | Rt::StrToCstr => (&[P], &[P]),
+            Rt::CharToI32 => (&[F], &[I]),
         }
     }
 
@@ -105,6 +122,7 @@ impl Rt {
         let ty = |t: &Ty| {
             AbiParam::new(match t {
                 Ty::F => types::F32,
+                Ty::I => types::I32,
                 Ty::P => ptr,
             })
         };
