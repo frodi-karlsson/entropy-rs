@@ -1,0 +1,65 @@
+# Called by release.yml after the builds. Each target's `entropy` runs and builds 99 Bottles on
+# its own platform, and the built executable may link only system libraries (spec 10).
+name: Smoke
+
+on:
+  workflow_call:
+    inputs:
+      plan:
+        description: dist's plan, passed by release.yml.
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            runner: macos-15
+          - target: x86_64-apple-darwin
+            runner: macos-15-intel
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-22.04
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-22.04-arm
+    runs-on: ${{ matrix.runner }}
+    env:
+      TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: artifacts-build-local-${{ matrix.target }}
+          path: dist
+      - name: Run and build 99 Bottles
+        run: |
+          tar -xJf "dist/entropy-lang-$TARGET.tar.xz"
+          entropy="entropy-lang-$TARGET/entropy"
+          case_file=tests/cases/upstream/99-bottles.en
+          expected=tests/cases/upstream/99-bottles.stdout
+          "$entropy" run "$case_file" --seed 0 --fuel 1000000 > run.txt
+          cmp run.txt "$expected"
+          "$entropy" build "$case_file" -o bottles
+          ENTROPY_SEED=0 ENTROPY_FUEL=1000000 ./bottles > build.txt
+          cmp build.txt "$expected"
+      - name: Built executables link only system libraries
+        run: |
+          if [ "$(uname)" = Darwin ]; then
+            libs=$(otool -L bottles | tail -n +2 | awk '{print $1}')
+            allowed='^/usr/lib/libSystem\.B\.dylib$'
+          else
+            libs=$(ldd bottles | awk '{print $1}')
+            allowed='^(linux-vdso\.so\.1|libc\.so\.6|libm\.so\.6|libgcc_s\.so\.1|/lib.*/ld-linux.*)$'
+          fi
+          echo "$libs"
+          if echo "$libs" | grep -Ev "$allowed"; then
+            echo "unexpected libraries above" >&2
+            exit 1
+          fi

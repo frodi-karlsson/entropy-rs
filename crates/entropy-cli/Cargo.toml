@@ -6,6 +6,8 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+# Not the repository itself, which cargo flags as redundant. Homebrew needs a homepage.
+homepage = "https://github.com/frodi-karlsson/entropy-rs#readme"
 keywords.workspace = true
 categories.workspace = true
 readme = "../../README.md"
