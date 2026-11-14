@@ -1,0 +1,25 @@
+---
+source: crates/entropy-syntax/src/parser/tests.rs
+expression: "render(&diagnostics, \"t.en\", &src, false)"
+---
+[E0010] Error: comparisons cannot be chained
+   ╭─[ t.en:1:27 ]
+   │
+ 1 │ Program t t [ print a < b < c; let x &= 1; print -1; ]
+   │                           ┬  
+   │                           ╰── here
+───╯
+[E0011] Error: bitwise compound assignment is not supported
+   ╭─[ t.en:1:38 ]
+   │
+ 1 │ Program t t [ print a < b < c; let x &= 1; print -1; ]
+   │                                      ─┬  
+   │                                       ╰── here
+───╯
+[E0014] Error: Entropy has no unary minus (write `0 - x`)
+   ╭─[ t.en:1:50 ]
+   │
+ 1 │ Program t t [ print a < b < c; let x &= 1; print -1; ]
+   │                                                  ┬  
+   │                                                  ╰── here
+───╯

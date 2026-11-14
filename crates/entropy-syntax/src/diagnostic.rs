@@ -29,6 +29,12 @@ pub mod code {
     pub const CHAR_LITERAL_LENGTH: Code = Code("E0006");
     pub const MALFORMED_NUMBER: Code = Code("E0007");
     pub const NUMBER_TOO_LARGE: Code = Code("E0008");
+    pub const UNEXPECTED_TOKEN: Code = Code("E0009");
+    pub const CHAINED_COMPARISON: Code = Code("E0010");
+    pub const BITWISE_ASSIGNMENT: Code = Code("E0011");
+    pub const NESTING_TOO_DEEP: Code = Code("E0012");
+    pub const EXTERN_NOT_AT_TOP_LEVEL: Code = Code("E0013");
+    pub const UNARY_MINUS: Code = Code("E0014");
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -103,6 +109,12 @@ pub fn render(diagnostics: &[Diagnostic], file: &str, source: &str, color: bool)
                 d.labels
                     .iter()
                     .map(|l| AriadneLabel::new(range(l.span)).with_message(&l.message)),
+            )
+            // Ariadne only underlines labels with a message, so mark the primary span.
+            .with_labels(
+                d.labels
+                    .is_empty()
+                    .then(|| AriadneLabel::new(range(d.span)).with_message("here")),
             )
             .finish();
         if report

@@ -75,7 +75,7 @@ fn keyword(name: &str) -> Option<Keyword> {
     })
 }
 
-/// Lexes the whole source. Errors are reported and skipped; the token list always ends in `Eof`.
+/// Lexes the whole source. Errors are reported and skipped. The token list always ends in `Eof`.
 pub fn lex(src: &str) -> (Vec<Token>, Vec<Diagnostic>) {
     let mut lexer = Lexer {
         src,
@@ -205,7 +205,7 @@ impl Lexer<'_> {
             trailing_dot = !self.peek().is_some_and(|c| c.is_ascii_digit());
             self.digits();
         }
-        // An `e` only starts an exponent when digits follow; otherwise it's the next token.
+        // An `e` only starts an exponent when digits follow. Otherwise it's the next token.
         let sign = matches!(self.peek2(), Some('+' | '-'));
         let after = self.rest().chars().nth(if sign { 2 } else { 1 });
         if matches!(self.peek(), Some('e' | 'E')) && after.is_some_and(|c| c.is_ascii_digit()) {
@@ -222,13 +222,13 @@ impl Lexer<'_> {
             self.error(
                 code::MALFORMED_NUMBER,
                 span,
-                format!("a number must start with a digit; write `0{text}`"),
+                format!("a number must start with a digit, as in `0{text}`"),
             );
         } else if trailing_dot {
             self.error(
                 code::MALFORMED_NUMBER,
                 span,
-                format!("expected a digit after `.`; write `{text}0`"),
+                format!("expected a digit after `.`, as in `{text}0`"),
             );
         }
         let mut value = if leading_dot || trailing_dot {
@@ -357,7 +357,7 @@ impl Lexer<'_> {
                 self.error(
                     code::CHAR_LITERAL_LENGTH,
                     Span::new(start, self.pos),
-                    "a char literal must contain exactly one character; use \"...\" for a string",
+                    "a char literal must contain exactly one character (use \"...\" for a string)",
                 );
             }
             None => self.error(
