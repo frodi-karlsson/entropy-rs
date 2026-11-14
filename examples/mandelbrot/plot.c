@@ -1,8 +1,8 @@
 /* Collects Mandelbrot pixels from Entropy and writes them as a text PPM.
  *
  * The coordinates Entropy passes drift like every other value, so each one is rounded to the
- * nearest pixel, and anything off the grid is ignored. A pixel never plotted stays black. */
-#include <math.h>
+ * nearest pixel, and anything off the grid is ignored. A pixel never plotted stays black. It needs
+ * no libm, so it links the same way on macOS and Linux. */
 #include <stdio.h>
 
 #define WIDTH 80
@@ -12,13 +12,17 @@
 static double pixels[HEIGHT][WIDTH];
 static int plotted[HEIGHT][WIDTH];
 
+/* Exactly the values that round to a pixel inside the grid. NaN fails every comparison. */
+static int on_grid(double v, int size) { return v > -0.5 && v < size - 0.5; }
+
 void plot(double x, double y, double iter) {
-    double col = round(x), row = round(y);
-    if (!(col >= 0 && col < WIDTH && row >= 0 && row < HEIGHT)) {
+    if (!on_grid(x, WIDTH) || !on_grid(y, HEIGHT)) {
         return;
     }
-    pixels[(int)row][(int)col] = iter;
-    plotted[(int)row][(int)col] = 1;
+    /* v is above -0.5 here, so adding 0.5 and truncating rounds to nearest, without libm. */
+    int col = (int)(x + 0.5), row = (int)(y + 0.5);
+    pixels[row][col] = iter;
+    plotted[row][col] = 1;
 }
 
 void finish(void) {
