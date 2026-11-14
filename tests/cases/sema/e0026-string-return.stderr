@@ -1,0 +1,7 @@
+[E0026] Error: an extern can't return a string
+   ╭─[ tests/cases/sema/e0026-string-return.en:3:20 ]
+   │
+ 3 │ extern f() returns string;
+   │                    ───┬──  
+   │                       ╰──── here
+───╯

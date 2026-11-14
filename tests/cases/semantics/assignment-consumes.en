@@ -1,0 +1,7 @@
+// seed: 7
+Program test case [
+real a = 10;
+real b = a;
+real c = a;
+print a;
+]

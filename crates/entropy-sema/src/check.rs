@@ -119,8 +119,8 @@ impl Checker {
             let previous = previous.span;
             self.diagnostics.push(
                 Diagnostic::error(code::ALREADY_DECLARED, ident.span, message)
-                    .with_label(ident.span, "declared again here")
-                    .with_label(previous, "first declared here"),
+                    .with_label(previous, "first declared here")
+                    .with_label(ident.span, "declared again here"),
             );
             return false;
         }
@@ -495,9 +495,9 @@ impl Checker {
                 code::ARGUMENT_COUNT,
                 c.span,
                 format!(
-                    "`{}` takes {} argument(s) but {} were given",
+                    "`{}` takes {}, but the call passes {}",
                     c.name.name,
-                    signature.params.len(),
+                    count(signature.params.len(), "argument"),
                     args.len()
                 ),
             );
@@ -530,6 +530,14 @@ impl Checker {
             },
             signature.returns,
         ))
+    }
+}
+
+fn count(n: usize, noun: &str) -> String {
+    if n == 1 {
+        format!("1 {noun}")
+    } else {
+        format!("{n} {noun}s")
     }
 }
 

@@ -214,5 +214,39 @@ impl<W: Write> Eval<'_, W> {
     }
 }
 
+/// Checks and runs source the way `entropy run` will: diagnostics, output, and the exit code
+/// (0 ok or stdout closed, 1 diagnostics or externs, 4 out of fuel, 101 internal error).
+/// Returns the exit code and what goes to stderr.
+pub fn run_source<W: Write>(
+    src: &str,
+    file: &str,
+    rate: f32,
+    seed: Option<u64>,
+    fuel: Option<u64>,
+    color: bool,
+    out: W,
+) -> (u8, String) {
+    let (hir, diagnostics) = entropy_sema::analyze(src);
+    let mut stderr = entropy_syntax::diagnostic::render(&diagnostics, file, src, color);
+    let Some(hir) = hir else {
+        return (1, stderr);
+    };
+    let mut rt = Runtime::new(rate, seed, fuel, out);
+    let result = run(&hir, &mut rt);
+    // Flush what was printed, even when the program stopped early.
+    let flushed = rt.flush();
+    let (code, message) = match result.and_then(|()| flushed.map_err(Error::Halt)) {
+        Ok(()) | Err(Error::Halt(Halt::OutputClosed)) => (0, String::new()),
+        Err(Error::Halt(Halt::OutOfFuel)) => (4, "entropy: out of fuel\n".to_string()),
+        Err(Error::Externs) => (
+            1,
+            "entropy-reference: programs with externs aren't supported\n".to_string(),
+        ),
+        Err(Error::Internal(what)) => (101, format!("entropy-reference: internal error: {what}\n")),
+    };
+    stderr.push_str(&message);
+    (code, stderr)
+}
+
 #[cfg(test)]
 mod tests;

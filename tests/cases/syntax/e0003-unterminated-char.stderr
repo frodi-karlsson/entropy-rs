@@ -1,0 +1,7 @@
+[E0003] Error: unterminated char literal
+   ╭─[ tests/cases/syntax/e0003-unterminated-char.en:3:7 ]
+   │
+ 3 │ print 'a;
+   │       ┬  
+   │       ╰── here
+───╯

@@ -1,0 +1,4 @@
+// mode: check
+Program test case [
+extern main();
+]

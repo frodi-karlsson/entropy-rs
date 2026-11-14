@@ -1,0 +1,28 @@
+[E0015] Error: `a` is not declared
+   ╭─[ tests/cases/sema/many-errors.en:3:7 ]
+   │
+ 3 │ print a + b;
+   │       ┬  
+   │       ╰── here
+───╯
+[E0015] Error: `b` is not declared
+   ╭─[ tests/cases/sema/many-errors.en:3:11 ]
+   │
+ 3 │ print a + b;
+   │           ┬  
+   │           ╰── here
+───╯
+[E0020] Error: can't assign a string to `x`, which is a real
+   ╭─[ tests/cases/sema/many-errors.en:4:10 ]
+   │
+ 4 │ real x = "s";
+   │          ─┬─  
+   │           ╰─── here
+───╯
+[E0019] Error: a condition must be a comparison (`<`, `>`, `<=` or `>=`)
+   ╭─[ tests/cases/sema/many-errors.en:5:7 ]
+   │
+ 5 │ while x [ ]
+   │       ┬  
+   │       ╰── here
+───╯

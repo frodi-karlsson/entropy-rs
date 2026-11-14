@@ -4,10 +4,6 @@
 use std::io::{self, IsTerminal};
 use std::process::ExitCode;
 
-use entropy_reference::{Error, run};
-use entropy_runtime::{Halt, Runtime};
-use entropy_syntax::diagnostic::render;
-
 const USAGE: &str = "usage: entropy-reference <file> [--seed N] [--rate R] [--fuel N]";
 
 struct Args {
@@ -50,31 +46,16 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    let (hir, diagnostics) = entropy_sema::analyze(&src);
     let color = io::stderr().is_terminal() && std::env::var_os("NO_COLOR").is_none();
-    eprint!("{}", render(&diagnostics, &args.file, &src, color));
-    let Some(hir) = hir else {
-        return ExitCode::from(1);
-    };
-
-    let mut rt = Runtime::new(args.rate, args.seed, args.fuel, io::stdout().lock());
-    let result = run(&hir, &mut rt);
-    // Flush what was printed, even when the program stopped early.
-    let flushed = rt.flush();
-    let result = result.and_then(|()| flushed.map_err(Error::Halt));
-    match result {
-        Ok(()) | Err(Error::Halt(Halt::OutputClosed)) => ExitCode::SUCCESS,
-        Err(Error::Halt(Halt::OutOfFuel)) => {
-            eprintln!("entropy: out of fuel");
-            ExitCode::from(4)
-        }
-        Err(Error::Externs) => {
-            eprintln!("entropy-reference: programs with externs aren't supported");
-            ExitCode::from(1)
-        }
-        Err(Error::Internal(what)) => {
-            eprintln!("entropy-reference: internal error: {what}");
-            ExitCode::from(101)
-        }
-    }
+    let (code, stderr) = entropy_reference::run_source(
+        &src,
+        &args.file,
+        args.rate,
+        args.seed,
+        args.fuel,
+        color,
+        io::stdout().lock(),
+    );
+    eprint!("{stderr}");
+    ExitCode::from(code)
 }

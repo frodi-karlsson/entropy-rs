@@ -1,0 +1,7 @@
+[E0018] Error: a comparison can only be an `if` or `while` condition
+   ╭─[ tests/cases/sema/e0018-comparison-as-value.en:3:7 ]
+   │
+ 3 │ print 1 < 2;
+   │       ──┬──  
+   │         ╰──── here
+───╯

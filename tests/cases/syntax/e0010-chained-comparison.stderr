@@ -1,0 +1,7 @@
+[E0010] Error: comparisons cannot be chained
+   ╭─[ tests/cases/syntax/e0010-chained-comparison.en:3:10 ]
+   │
+ 3 │ if 1 < 2 < 3 [ ]
+   │          ┬  
+   │          ╰── here
+───╯

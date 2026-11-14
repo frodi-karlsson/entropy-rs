@@ -1,0 +1,5 @@
+// seed: 7
+Program test case [
+real i = 0;
+while i < 3 [ real j = 0; while j < 2 [ if i > j [ print i; print j; print " "; ] let j += 1; ] let i += 1; ]
+]

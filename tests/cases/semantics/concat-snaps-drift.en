@@ -1,0 +1,7 @@
+// seed: 7
+Program test case [
+string s = "x";
+real i = 0;
+while i < 50 [ let s = s + ""; let i += 1; ]
+print s;
+]

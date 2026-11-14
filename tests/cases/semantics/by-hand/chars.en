@@ -1,0 +1,14 @@
+// rate: 0
+Program test case [
+char c = 65.4; print c; print "\n";
+let c = 65.5; print c; print "\n";
+let c = 66.5; print c; print "\n";
+let c = 0 - 1; print c; print "\n";
+let c = 55296; print c; print "\n";
+let c = 1114112; print c; print "\n";
+let c = 1 / 0; print c; print "\n";
+let c = 0 / 0; print c; print "\n";
+let c = 128512; print c; print "\n";
+real r = 'z'; print r; print "\n";
+print "" + c; print "\n";
+]

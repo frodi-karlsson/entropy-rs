@@ -13,8 +13,14 @@ pub fn parse(src: &str) -> (Program, Vec<Diagnostic>) {
         kind: TokenKind::Eof,
         span: Span::new(src.len(), src.len()),
     });
+    // An unterminated string or comment swallows the rest of the file, so any error at the end of
+    // the file is a consequence of it.
+    let lexed_to_eof = diagnostics
+        .iter()
+        .any(|d| d.code == code::UNTERMINATED_STRING || d.code == code::UNTERMINATED_COMMENT);
     let mut parser = Parser {
         src,
+        lexed_to_eof,
         tokens,
         pos: 0,
         eof,
@@ -42,6 +48,7 @@ struct Parser<'a> {
     depth: usize,
     /// Set once the depth limit is hit. Parsing then stops.
     too_deep: bool,
+    lexed_to_eof: bool,
     diagnostics: Vec<Diagnostic>,
 }
 
@@ -174,6 +181,9 @@ impl Parser<'_> {
             return Bail;
         }
         let token = self.peek().clone();
+        if self.lexed_to_eof && token.kind == TokenKind::Eof {
+            return Bail;
+        }
         self.error(
             code::UNEXPECTED_TOKEN,
             token.span,

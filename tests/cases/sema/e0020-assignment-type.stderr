@@ -1,0 +1,7 @@
+[E0020] Error: can't assign a real to `s`, which is a string (write `"" + x` to convert)
+   ╭─[ tests/cases/sema/e0020-assignment-type.en:4:12 ]
+   │
+ 4 │ string s = r;
+   │            ┬  
+   │            ╰── here
+───╯

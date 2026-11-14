@@ -1,0 +1,11 @@
+// seed: 7
+Program test case [
+real i = 0;
+while i < 3 [
+  string s = "i=";
+  let s += i;
+  print s;
+  print "\n";
+  let i += 1;
+]
+]

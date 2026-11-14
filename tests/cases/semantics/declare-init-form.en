@@ -1,0 +1,7 @@
+// seed: 7
+Program test case [
+real x = 5;
+char c = 'c';
+string s = "s" + x + c;
+print s;
+]

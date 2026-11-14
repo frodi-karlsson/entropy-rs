@@ -1,0 +1,7 @@
+[E0004] Error: unterminated block comment
+   ╭─[ tests/cases/syntax/e0004-unterminated-comment.en:3:10 ]
+   │
+ 3 │ print 1; /* never closed
+   │          ─┬  
+   │           ╰── here
+───╯

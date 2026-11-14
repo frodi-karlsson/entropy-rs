@@ -1,0 +1,12 @@
+// rate: 0
+Program test case [
+print 1 / 0; print "\n";
+print 0 - 1 / 0; print "\n";
+print 0 / 0; print "\n";
+print 0 * (0 - 1); print "\n";
+real n = 0 / 0;
+if n < 1 [ print "lt"; ] if n > 1 [ print "gt"; ] if n <= 1 [ print "le"; ] if n >= 1 [ print "ge"; ]
+if 1 < n [ print "lt"; ] if 1 > n [ print "gt"; ] if 1 <= n [ print "le"; ] if 1 >= n [ print "ge"; ]
+real big = 1 / 0;
+if big > 1 [ print "inf is big"; ]
+]

@@ -1,0 +1,7 @@
+[E0017] Error: `-` can't be used with a string (only `+` can)
+   ╭─[ tests/cases/sema/e0017-operand-type.en:4:7 ]
+   │
+ 4 │ print s - 1;
+   │       ──┬──  
+   │         ╰──── here
+───╯

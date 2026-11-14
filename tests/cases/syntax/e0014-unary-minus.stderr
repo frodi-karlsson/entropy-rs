@@ -1,0 +1,7 @@
+[E0014] Error: Entropy has no unary minus (write `0 - x`)
+   ╭─[ tests/cases/syntax/e0014-unary-minus.en:3:7 ]
+   │
+ 3 │ print -1;
+   │       ┬  
+   │       ╰── here
+───╯

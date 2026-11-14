@@ -1,0 +1,5 @@
+// mode: check
+Program test case [
+real x = 1;
+if 1 < 2 [ real x = 2; ]
+]

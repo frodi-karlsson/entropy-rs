@@ -100,6 +100,13 @@ impl Diagnostic {
     }
 }
 
+/// Ariadne prints labels in the order given, so sort them by position.
+fn labels_in_order(d: &Diagnostic) -> impl Iterator<Item = &Label> {
+    let mut labels: Vec<&Label> = d.labels.iter().collect();
+    labels.sort_by_key(|l| l.span);
+    labels.into_iter()
+}
+
 /// Renders diagnostics sorted by position, as ariadne reports.
 pub fn render(diagnostics: &[Diagnostic], file: &str, source: &str, color: bool) -> String {
     let mut sorted: Vec<&Diagnostic> = diagnostics.iter().collect();
@@ -121,8 +128,7 @@ pub fn render(diagnostics: &[Diagnostic], file: &str, source: &str, color: bool)
             .with_code(d.code.0)
             .with_message(&d.message)
             .with_labels(
-                d.labels
-                    .iter()
+                labels_in_order(d)
                     .map(|l| AriadneLabel::new(range(l.span)).with_message(&l.message)),
             )
             // Ariadne only underlines labels with a message, so mark the primary span.

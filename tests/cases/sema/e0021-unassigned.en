@@ -1,0 +1,6 @@
+// mode: check
+Program test case [
+declare x real;
+if 1 < 2 [ let x = 1; ]
+print x;
+]

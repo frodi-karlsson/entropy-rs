@@ -1,0 +1,7 @@
+// rate: 0
+// fuel: 21
+Program test case [
+string s = "abc";
+let s += s;
+print s;
+]

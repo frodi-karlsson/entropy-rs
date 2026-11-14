@@ -1,0 +1,10 @@
+[E0016] Error: `x` is already declared in an outer scope
+   ╭─[ tests/cases/sema/e0016-already-declared.en:4:17 ]
+   │
+ 3 │ real x = 1;
+   │      ┬  
+   │      ╰── first declared here
+ 4 │ if 1 < 2 [ real x = 2; ]
+   │                 ┬  
+   │                 ╰── declared again here
+───╯

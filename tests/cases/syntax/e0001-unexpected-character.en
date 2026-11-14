@@ -1,0 +1,4 @@
+// mode: check
+Program test case [
+print 1 @ 2;
+]

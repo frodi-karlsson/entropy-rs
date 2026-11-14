@@ -1,0 +1,5 @@
+// mode: check
+Program test case [
+real r = 1;
+string s = r;
+]

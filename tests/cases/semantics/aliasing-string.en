@@ -1,0 +1,8 @@
+// seed: 7
+Program test case [
+string a = "hello";
+string b = a;
+print b;
+print "\n";
+print a;
+]

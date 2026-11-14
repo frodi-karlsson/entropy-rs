@@ -1,0 +1,7 @@
+[E0009] Error: expected `Program <namespace> <name>`, found keyword `print`
+   ╭─[ tests/cases/syntax/missing-header.en:2:1 ]
+   │
+ 2 │ print 1;
+   │ ──┬──  
+   │   ╰──── here
+───╯

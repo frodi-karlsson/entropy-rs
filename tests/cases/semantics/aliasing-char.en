@@ -1,0 +1,9 @@
+// seed: 7
+Program test case [
+char a = 'A';
+char b = a;
+print b;
+print a;
+let b = 'z';
+print a;
+]

@@ -1,0 +1,7 @@
+[E0019] Error: a condition must be a comparison (`<`, `>`, `<=` or `>=`)
+   ╭─[ tests/cases/sema/e0019-condition-not-comparison.en:3:7 ]
+   │
+ 3 │ while 1 [ ]
+   │       ┬  
+   │       ╰── here
+───╯

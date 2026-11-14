@@ -1,0 +1,6 @@
+// rate: 0
+// fuel: 21
+Program test case [
+real i = 0;
+while i < 3 [ print i; let i += 1; ]
+]

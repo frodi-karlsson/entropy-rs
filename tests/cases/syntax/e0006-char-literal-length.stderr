@@ -1,0 +1,7 @@
+[E0006] Error: a char literal must contain exactly one character (use "..." for a string)
+   ╭─[ tests/cases/syntax/e0006-char-literal-length.en:3:7 ]
+   │
+ 3 │ print 'ab';
+   │       ──┬─  
+   │         ╰─── here
+───╯

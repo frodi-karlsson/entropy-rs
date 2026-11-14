@@ -1,0 +1,8 @@
+// rate: 0.001
+Program test case [
+real x = 65;
+char c = x;
+print x;
+print c;
+print "decay";
+]

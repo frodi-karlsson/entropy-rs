@@ -1,0 +1,7 @@
+[E0015] Error: `y` is not declared
+   ╭─[ tests/cases/sema/e0015-undeclared.en:3:7 ]
+   │
+ 3 │ print y;
+   │       ┬  
+   │       ╰── here
+───╯

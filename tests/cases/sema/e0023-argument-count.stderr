@@ -1,0 +1,7 @@
+[E0023] Error: `f` takes 1 argument, but the call passes 2
+   ╭─[ tests/cases/sema/e0023-argument-count.en:4:1 ]
+   │
+ 4 │ f(1, 2);
+   │ ───┬───  
+   │    ╰───── here
+───╯

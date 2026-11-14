@@ -1,0 +1,6 @@
+// seed: 7
+Program test case [
+real a = 1;
+real b = 2;
+print a - b * a + b / a;
+]

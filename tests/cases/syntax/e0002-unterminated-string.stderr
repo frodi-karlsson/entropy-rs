@@ -1,0 +1,7 @@
+[E0002] Error: unterminated string literal
+   ╭─[ tests/cases/syntax/e0002-unterminated-string.en:3:7 ]
+   │
+ 3 │ print "abc;
+   │       ┬  
+   │       ╰── here
+───╯

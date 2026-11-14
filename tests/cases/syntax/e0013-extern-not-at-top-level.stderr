@@ -1,0 +1,7 @@
+[E0013] Error: `extern` declarations are only allowed at the top level of the program
+   ╭─[ tests/cases/syntax/e0013-extern-not-at-top-level.en:3:12 ]
+   │
+ 3 │ if 1 < 2 [ extern f(); ]
+   │            ───┬──  
+   │               ╰──── here
+───╯

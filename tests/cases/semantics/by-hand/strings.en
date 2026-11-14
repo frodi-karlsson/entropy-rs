@@ -1,0 +1,13 @@
+// rate: 0
+Program test case [
+print "tab\there"; print "\n";
+print "quote\" backslash\\ apostrophe\' \u00e9"; print "\n";
+print "a" + 1.5 + 'b'; print "\n";
+print 1 + "a"; print "\n";
+print "" + 0.1; print "\n";
+print "" + 1 / 0; print "\n";
+print "" + 0 / 0; print "\n";
+print "" + 0 * (0 - 1); print "\n";
+string s = "ab"; let s += s; print s; print "\n";
+let s += 'A' + 1; print s; print "\n";
+]

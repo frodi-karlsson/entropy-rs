@@ -1,0 +1,14 @@
+[E0001] Error: unexpected character `@`
+   ╭─[ tests/cases/syntax/e0001-unexpected-character.en:3:9 ]
+   │
+ 3 │ print 1 @ 2;
+   │         ┬  
+   │         ╰── here
+───╯
+[E0009] Error: expected `;`, found number
+   ╭─[ tests/cases/syntax/e0001-unexpected-character.en:3:11 ]
+   │
+ 3 │ print 1 @ 2;
+   │           ┬  
+   │           ╰── here
+───╯

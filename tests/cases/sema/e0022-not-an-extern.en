@@ -1,0 +1,5 @@
+// mode: check
+Program test case [
+f();
+extern f();
+]

@@ -1,0 +1,37 @@
+Program Truttle1 FizzBuzz
+[
+  declare count real;
+  declare remainder3 real;
+  declare remainder5 real;
+  let count = 1;
+  while count < 250 
+  [
+    let remainder3 = count;
+    while remainder3 > 2.1
+    [
+	let remainder3 = remainder3 - 3;
+    ]
+    let remainder5 = count;
+    while remainder5 > 4.1
+    [
+	let remainder5 = remainder5 - 5;
+	if remainder3 < 0.5
+	[
+		print "Fizz";
+	]
+	if remainder5 < 0.5
+	[
+		print "Buzz";
+	]
+	if remainder3 > 0.1
+	[
+		if remainder5 > 0.1
+		[
+			print count;
+		]
+	]
+	print "\n";
+	let count = count + 1;
+    ]
+  ]
+] 

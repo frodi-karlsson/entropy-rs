@@ -1,0 +1,7 @@
+[E0024] Error: expected a real argument, found a string
+   ╭─[ tests/cases/sema/e0024-argument-type.en:4:3 ]
+   │
+ 4 │ f("x");
+   │   ─┬─  
+   │    ╰─── here
+───╯

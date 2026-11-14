@@ -1,0 +1,7 @@
+[E0021] Error: `x` is read before it is assigned
+   ╭─[ tests/cases/sema/e0021-unassigned.en:5:7 ]
+   │
+ 5 │ print x;
+   │       ┬  
+   │       ╰── here
+───╯

@@ -1,0 +1,7 @@
+// rate: 0
+// fuel: 3
+Program test case [
+real a = 1;
+real b = a;
+print b;
+]

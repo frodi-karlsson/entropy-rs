@@ -1,0 +1,4 @@
+// mode: check
+Program test case [
+if 1 < 2 < 3 [ ]
+]

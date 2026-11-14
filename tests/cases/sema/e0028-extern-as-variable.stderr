@@ -1,0 +1,7 @@
+[E0028] Error: `f` is an extern, not a variable
+   ╭─[ tests/cases/sema/e0028-extern-as-variable.en:4:7 ]
+   │
+ 4 │ print f;
+   │       ┬  
+   │       ╰── here
+───╯

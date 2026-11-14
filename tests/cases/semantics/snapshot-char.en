@@ -1,0 +1,6 @@
+// seed: 7
+Program test case [
+char c = 'm';
+print c + c;
+print c * c - c;
+]

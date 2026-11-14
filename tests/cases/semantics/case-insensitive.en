@@ -1,0 +1,5 @@
+// seed: 7
+Program test case [
+REAL Count = 3;
+WHILE count > 0 [ PRINT COUNT; LET cOuNt -= 1; ]
+]

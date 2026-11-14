@@ -1,0 +1,5 @@
+// mode: check
+Program test case [
+string s = "a";
+print s - 1;
+]

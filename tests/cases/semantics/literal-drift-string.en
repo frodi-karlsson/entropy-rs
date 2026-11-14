@@ -1,0 +1,5 @@
+// seed: 7
+Program test case [
+real i = 0;
+while i < 5 [ print "abc\n"; let i += 1; ]
+]

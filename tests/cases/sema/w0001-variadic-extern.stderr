@@ -1,0 +1,7 @@
+[W0001] Warning: `printf` is variadic in C, and calling a variadic function through an extern is undefined behaviour
+   ╭─[ tests/cases/sema/w0001-variadic-extern.en:3:8 ]
+   │
+ 3 │ extern printf(string);
+   │        ───┬──  
+   │           ╰──── here
+───╯

@@ -1,0 +1,7 @@
+[E0009] Error: expected `;`, found keyword `print`
+   ╭─[ tests/cases/syntax/e0009-unexpected-token.en:4:1 ]
+   │
+ 4 │ print 2;
+   │ ──┬──  
+   │   ╰──── here
+───╯

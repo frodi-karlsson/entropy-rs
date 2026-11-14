@@ -1,0 +1,7 @@
+// seed: 7
+Program test case [
+# a comment
+print 1; # another
+// and this
+/* and this */
+]

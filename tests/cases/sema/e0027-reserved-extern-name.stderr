@@ -1,0 +1,7 @@
+[E0027] Error: `main` is reserved and can't be an extern
+   ╭─[ tests/cases/sema/e0027-reserved-extern-name.en:3:8 ]
+   │
+ 3 │ extern main();
+   │        ──┬─  
+   │          ╰─── here
+───╯

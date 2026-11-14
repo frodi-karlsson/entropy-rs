@@ -1,0 +1,7 @@
+[E0011] Error: bitwise compound assignment is not supported
+   ╭─[ tests/cases/syntax/e0011-bitwise-assignment.en:3:19 ]
+   │
+ 3 │ real x = 1; let x &= 2;
+   │                   ─┬  
+   │                    ╰── here
+───╯

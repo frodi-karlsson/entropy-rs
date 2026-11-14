@@ -1,0 +1,5 @@
+// fuel: 1000
+Program test case [
+real x = 0;
+while x < 1000000 [ print x; print "\n"; let x += 1; ]
+]

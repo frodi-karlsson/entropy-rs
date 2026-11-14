@@ -1,0 +1,7 @@
+[E0005] Error: unknown escape `\q`
+   ╭─[ tests/cases/syntax/e0005-invalid-escape.en:3:9 ]
+   │
+ 3 │ print "a\qb";
+   │         ─┬  
+   │          ╰── here
+───╯

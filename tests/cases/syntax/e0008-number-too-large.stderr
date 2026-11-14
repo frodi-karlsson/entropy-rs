@@ -1,0 +1,7 @@
+[E0008] Error: number is too large for a real
+   ╭─[ tests/cases/syntax/e0008-number-too-large.en:3:7 ]
+   │
+ 3 │ print 1e39;
+   │       ──┬─  
+   │         ╰─── here
+───╯

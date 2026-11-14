@@ -1,0 +1,28 @@
+[E0009] Error: expected an expression, found `;`
+   ╭─[ tests/cases/syntax/recovery.en:3:7 ]
+   │
+ 3 │ print ;
+   │       ┬  
+   │       ╰── here
+───╯
+[E0009] Error: expected an expression, found `)`
+   ╭─[ tests/cases/syntax/recovery.en:5:18 ]
+   │
+ 5 │ if 1 < 2 [ print ); ]
+   │                  ┬  
+   │                  ╰── here
+───╯
+[E0011] Error: bitwise compound assignment is not supported
+   ╭─[ tests/cases/syntax/recovery.en:6:7 ]
+   │
+ 6 │ let x &= 1;
+   │       ─┬  
+   │        ╰── here
+───╯
+[E0009] Error: expected `;`, found `]`
+   ╭─[ tests/cases/syntax/recovery.en:8:1 ]
+   │
+ 8 │ ]
+   │ ┬  
+   │ ╰── here
+───╯

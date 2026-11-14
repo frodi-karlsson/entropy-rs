@@ -1,0 +1,4 @@
+// mode: check
+Program test case [
+real x = 1; let x &= 2;
+]

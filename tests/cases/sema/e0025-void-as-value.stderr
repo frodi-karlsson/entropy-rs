@@ -1,0 +1,7 @@
+[E0025] Error: `f` returns nothing, so its result can't be used
+   ╭─[ tests/cases/sema/e0025-void-as-value.en:4:7 ]
+   │
+ 4 │ print f();
+   │       ─┬─  
+   │        ╰─── here
+───╯

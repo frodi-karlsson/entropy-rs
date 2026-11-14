@@ -1,0 +1,5 @@
+// seed: 7
+Program test case [
+real x = 3;
+print x - x - x;
+]

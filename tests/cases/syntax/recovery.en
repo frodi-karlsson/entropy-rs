@@ -1,0 +1,8 @@
+// mode: check
+Program test case [
+print ;
+print 1;
+if 1 < 2 [ print ); ]
+let x &= 1;
+print 2
+]

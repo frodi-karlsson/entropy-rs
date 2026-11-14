@@ -1,0 +1,7 @@
+[E0007] Error: a number must start with a digit, as in `0.5`
+   ╭─[ tests/cases/syntax/e0007-malformed-number.en:3:7 ]
+   │
+ 3 │ print .5;
+   │       ─┬  
+   │        ╰── here
+───╯
