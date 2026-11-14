@@ -1,0 +1,37 @@
+// rate: 0.01
+// fuel: 20000000
+# The Mandelbrot set in ASCII, with no externs. Entropy has no `==`, `&&`, `break` or unary
+# minus, so a point that escapes sets `escaped` and pushes `iter` to the limit to end its loop.
+Program examples Mandelbrot [
+    real height = 24;
+    real width = 64;
+    real y = 0;
+    while y < height [
+        real x = 0;
+        while x < width [
+            real cr = x / width * 3 - 2.2;
+            real ci = y / height * 2.4 - 1.2;
+            real zr = 0;
+            real zi = 0;
+            real iter = 0;
+            real escaped = 0;
+            while iter < 40 [
+                real zr2 = zr * zr;
+                real zi2 = zi * zi;
+                if zr2 + zi2 > 4 [
+                    let escaped = 1;
+                    let iter = 40;
+                ]
+                real t = zr2 - zi2 + cr;
+                let zi = 2 * zr * zi + ci;
+                let zr = t;
+                let iter += 1;
+            ]
+            if escaped > 0.5 [ print " "; ]
+            if escaped < 0.5 [ print "#"; ]
+            let x += 1;
+        ]
+        print "\n";
+        let y += 1;
+    ]
+]
