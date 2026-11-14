@@ -12,3 +12,6 @@ name = "entropy_runtime"
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+rand_chacha = "0.10.0"
