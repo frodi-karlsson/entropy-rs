@@ -181,3 +181,47 @@ fn build_without_a_linker_explains() {
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(stderr.contains("can't find the C linker"), "{stderr}");
 }
+
+/// Prints about 6 MiB, more than any pipe buffer holds.
+const LOUD: &str = "Program a b [ real n = 0; while n < 100000 [
+    print \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\n\";
+    let n = n + 1;
+] ]";
+
+/// Reads one byte, closes the pipe, and expects a quiet exit 0.
+fn exits_quietly_when_stdout_closes(mut cmd: Command) {
+    use std::io::Read;
+    let mut child = cmd
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut byte = [0u8];
+    child.stdout.take().unwrap().read_exact(&mut byte).unwrap();
+    let out = child.wait_with_output().unwrap();
+    assert_eq!(out.status.code(), Some(0), "{:?}", out.status);
+    assert!(
+        out.stderr.is_empty(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
+fn run_exits_quietly_when_stdout_closes() {
+    let dir = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli");
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("loud.en");
+    std::fs::write(&file, LOUD).unwrap();
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_entropy"));
+    cmd.args(["run", "--mutation-rate", "0"]).arg(file);
+    exits_quietly_when_stdout_closes(cmd);
+}
+
+#[test]
+fn executables_exit_quietly_when_stdout_closes() {
+    let exe = out_path("");
+    let out = entropy(&["build", "--mutation-rate", "0", "-o", &exe], LOUD);
+    assert_eq!(code(&out), 0);
+    exits_quietly_when_stdout_closes(Command::new(exe));
+}
