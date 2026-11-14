@@ -20,7 +20,7 @@ Do the simplest thing that works. Add complexity when a real need appears, not a
 
 This covers docs, comments, commit messages, PRs and replies.
 
-- Short sentences, common words.
+- Short sentences, common words, simple punctuation.
 - Say it once. Cut what the reader doesn't need.
 - No filler, hedging or sales tone.
 - Little formatting. Bold rarely. Lists only for real lists.
