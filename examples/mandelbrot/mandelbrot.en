@@ -1,0 +1,41 @@
+// seed: 42
+// rate: 0.01
+// fuel: 50000000
+// ffi: plot.c
+# The Mandelbrot set as a PPM image. `plot` in plot.c stores each pixel, and `finish` writes the
+# image to stdout. Entropy has no `==`, `&&`, `break` or unary minus, so a point that escapes
+# records its iteration in `esc` and pushes `iter` to the limit to end its loop.
+Program examples Mandelbrot [
+    extern plot(real, real, real);
+    extern finish();
+    real height = 40;
+    real width = 80;
+    real y = 0;
+    while y < height [
+        real x = 0;
+        while x < width [
+            real cr = x / width * 3 - 2.2;
+            real ci = y / height * 2.4 - 1.2;
+            real zr = 0;
+            real zi = 0;
+            real iter = 0;
+            real esc = 50;
+            while iter < 50 [
+                real zr2 = zr * zr;
+                real zi2 = zi * zi;
+                if zr2 + zi2 > 4 [
+                    let esc = iter;
+                    let iter = 50;
+                ]
+                real t = zr2 - zi2 + cr;
+                let zi = 2 * zr * zi + ci;
+                let zr = t;
+                let iter += 1;
+            ]
+            plot(x, y, esc);
+            let x += 1;
+        ]
+        let y += 1;
+    ]
+    finish();
+]
