@@ -1,0 +1,12 @@
+---
+source: crates/entropy-syntax/src/diagnostic.rs
+expression: "render(&diagnostics, \"t.en\", source, false)"
+---
+[E9999] Warning: unused variable `x`
+[E9999] Error: undeclared variable `y`
+   ╭─[ t.en:2:7 ]
+   │
+ 2 │ print y;
+   │       ┬  
+   │       ╰── not declared
+───╯
