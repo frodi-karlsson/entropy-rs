@@ -20,5 +20,6 @@ run cargo fmt --all --check
 run cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 run cargo deny check
 run actionlint
+run shellcheck scripts/*.sh
 run zizmor --quiet .github/workflows
 run cargo test --workspace --all-features --locked
