@@ -277,3 +277,59 @@ fn executables_exit_quietly_when_stdout_closes() {
     assert_eq!(code(&out), 0);
     exits_quietly_when_stdout_closes(Command::new(exe));
 }
+
+/// `show2(s, s)` must consume `s` and fix the first argument's text before evaluating the second.
+/// `print s; print s;` makes the same draws on the reference, so the texts must match it.
+#[test]
+fn extern_arguments_are_fixed_in_order() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let dylib = out_path(".so");
+    let cc = Command::new("cc")
+        .args(["-shared", "-fPIC", "-o", &dylib])
+        .arg(root.join("tests/cases/ffi/helpers.c"))
+        .output()
+        .unwrap();
+    assert!(
+        cc.status.success(),
+        "{}",
+        String::from_utf8_lossy(&cc.stderr)
+    );
+
+    let decl = "declare s string; let s = \"abcdefgh\";";
+    let ffi = format!("Program a b [ extern show2(string, string); {decl} show2(s, s); ]");
+    let plain = format!("Program a b [ {decl} print s; print s; ]");
+    let mut told_apart = false;
+    for seed in ["1", "2", "3", "4"] {
+        let args = [
+            "run",
+            "--seed",
+            seed,
+            "--mutation-rate",
+            "50",
+            "--dylib",
+            &dylib,
+        ];
+        let jit = String::from_utf8(entropy(&args, &ffi).stdout).unwrap();
+        let mut out = Vec::new();
+        let (exit, _) = entropy_reference::run_source(
+            &plain,
+            "t.en",
+            50.0,
+            Some(seed.parse().unwrap()),
+            None,
+            false,
+            &mut out,
+        );
+        assert_eq!(exit, 0);
+        let texts: Vec<char> = String::from_utf8(out).unwrap().chars().collect();
+        let (first, second) = texts.split_at(8);
+        let expected = format!(
+            "[{}|{}]",
+            first.iter().collect::<String>(),
+            second.iter().collect::<String>()
+        );
+        assert_eq!(jit, expected, "seed {seed}");
+        told_apart |= first != second;
+    }
+    assert!(told_apart, "no seed tells the order apart");
+}

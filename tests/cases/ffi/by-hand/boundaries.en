@@ -1,0 +1,12 @@
+// rate: 0
+// ffi: ../helpers.c
+# C sees a string only up to its first NUL, and an invalid char as U+FFFD.
+Program ffi boundaries [
+extern show(string);
+extern show_char(char);
+extern newline();
+show("a\0b");
+show_char(0 - 1);
+show_char(0 / 0);
+newline();
+]

@@ -1,0 +1,11 @@
+// rate: 0
+// ffi: ../helpers.c
+# A void call as a statement, and a non-void call whose result is dropped.
+Program ffi discard [
+extern half(real) returns real;
+extern newline();
+half(3);
+newline();
+print half(3);
+newline();
+]

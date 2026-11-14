@@ -1,0 +1,7 @@
+// seed: 3
+# `sqrt` comes from libm with no `--dylib` or `-l`.
+Program ffi sqrt [
+extern sqrt(real) returns real;
+print sqrt(16);
+print "\n";
+]

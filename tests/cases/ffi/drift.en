@@ -1,0 +1,21 @@
+// seed: 7
+// rate: 10
+// ffi: helpers.c
+# Arguments and results drift like any other value, the same way on both paths.
+Program ffi drift [
+extern add3(real, real, real) returns real;
+extern next_char(char) returns char;
+extern show2(string, string);
+extern newline();
+declare x real;
+let x = 1;
+declare s string;
+let s = "abcdef";
+while x < 20 [
+  print add3(x, x, 1);
+  print next_char('a');
+  show2(s, s);
+  newline();
+  let x = x + 1;
+]
+]

@@ -1,0 +1,14 @@
+// rate: 0
+// ffi: ../helpers.c
+# Output from C and from `print` appears in program order, with or without a newline between.
+Program ffi interleave [
+extern show(string);
+extern newline();
+print "a";
+show("b");
+print "c";
+newline();
+print "d\n";
+show("e");
+print "f\n";
+]

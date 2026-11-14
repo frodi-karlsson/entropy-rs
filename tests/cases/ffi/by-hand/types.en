@@ -1,0 +1,27 @@
+// rate: 0
+// ffi: ../helpers.c
+# Every parameter and return type, and conversions between real and char in both directions.
+Program ffi types [
+extern add3(real, real, real) returns real;
+extern next_char(char) returns char;
+extern show(string);
+extern show_char(char);
+extern show_real(real);
+extern newline();
+print add3(1, 2, 3.5);
+newline();
+print next_char('a');
+newline();
+show("hi é");
+show_char(66);
+show_real('A');
+newline();
+declare c char;
+let c = next_char(65);
+print c;
+newline();
+declare r real;
+let r = next_char('x');
+print r;
+newline();
+]

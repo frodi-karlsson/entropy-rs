@@ -2,12 +2,14 @@
 //! `.stderr` and `.exit` files (a missing file means empty output or exit 0).
 //!
 //! Run cases go through the reference evaluator, `entropy run` and a built executable, and all
-//! three must match. Runs that exit 0 then repeat with `ENTROPY_DEBUG_RC=1` to check for leaks.
+//! three must match. Cases in `ffi/` call C, so they skip the reference. Runs that exit 0 then
+//! repeat with `ENTROPY_DEBUG_RC=1` to check for leaks.
 //!
 //! Directives, one per line at the top of the file:
 //! - `// mode: check` runs `entropy check` only.
 //! - `// seed: N`, `// rate: R` and `// fuel: N` set up a run (fuel defaults to 1000000).
-//! - `// ffi: foo.c` marks an FFI case (not run yet).
+//! - `// ffi: foo.c` compiles `foo.c`, next to the case, into a shared library for `--dylib` and
+//!   a static one for `-l`.
 //!
 //! Files in `spec/` and `upstream/` are copied verbatim and have no directives, so they run at the
 //! defaults: seed 0, rate 2 and fuel 1000000.
@@ -28,7 +30,7 @@ struct Directives {
     seed: u64,
     rate: Option<f32>,
     fuel: Option<u64>,
-    ffi: bool,
+    c_file: Option<String>,
 }
 
 fn directives(src: &str) -> Result<Directives, String> {
@@ -47,7 +49,7 @@ fn directives(src: &str) -> Result<Directives, String> {
             "seed" => d.seed = value.parse().map_err(|_| bad())?,
             "rate" => d.rate = Some(value.parse().map_err(|_| bad())?),
             "fuel" => d.fuel = Some(value.parse().map_err(|_| bad())?),
-            "ffi" => d.ffi = true,
+            "ffi" => d.c_file = Some(value.to_string()),
             _ => return Err(bad()),
         }
     }
@@ -98,7 +100,84 @@ fn debug_rc(cmd: &mut Command, on: bool) -> &mut Command {
     }
 }
 
-fn jit(rel: &str, d: &Directives, leak_check: bool) -> Result<Outcome, Failed> {
+/// A case's C code, compiled both ways.
+struct CLib {
+    dylib: PathBuf,
+    archive_dir: PathBuf,
+    name: String,
+}
+
+/// A directory of the case's own under the test temp dir.
+fn scratch(rel: &str) -> PathBuf {
+    Path::new(env!("CARGO_TARGET_TMPDIR"))
+        .join("golden")
+        .join(rel.trim_start_matches("tests/cases/").replace('/', "_"))
+}
+
+fn cc(args: &[&std::ffi::OsStr]) -> Result<(), Failed> {
+    let out = Command::new("cc").args(args).output()?;
+    if out.status.success() {
+        return Ok(());
+    }
+    Err(format!("cc failed\n{}", String::from_utf8_lossy(&out.stderr)).into())
+}
+
+/// Compiles the case's C file. The dylib and the archive go in separate directories, so `-l`
+/// can't pick the dylib.
+fn compile_c(case: &Path, rel: &str, c_file: &str) -> Result<CLib, Failed> {
+    // Relative to the case itself, so a symlinked case finds the C file next to its target.
+    let source = case.canonicalize()?.with_file_name(c_file);
+    let name = Path::new(c_file)
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let dir = scratch(rel).with_extension("c");
+    let (shared, archive_dir) = (dir.join("shared"), dir.join("static"));
+    std::fs::create_dir_all(&shared)?;
+    std::fs::create_dir_all(&archive_dir)?;
+    let ext = if cfg!(target_os = "macos") {
+        "dylib"
+    } else {
+        "so"
+    };
+    let dylib = shared.join(format!("lib{name}.{ext}"));
+    let object = archive_dir.join(format!("{name}.o"));
+    cc(&[
+        "-shared".as_ref(),
+        "-fPIC".as_ref(),
+        "-o".as_ref(),
+        dylib.as_ref(),
+        source.as_ref(),
+    ])?;
+    cc(&[
+        "-c".as_ref(),
+        "-fPIC".as_ref(),
+        "-o".as_ref(),
+        object.as_ref(),
+        source.as_ref(),
+    ])?;
+    let archive = archive_dir.join(format!("lib{name}.a"));
+    let out = Command::new("ar")
+        .arg("rcs")
+        .arg(&archive)
+        .arg(&object)
+        .output()?;
+    if !out.status.success() {
+        return Err(format!("ar failed\n{}", String::from_utf8_lossy(&out.stderr)).into());
+    }
+    Ok(CLib {
+        dylib,
+        archive_dir,
+        name,
+    })
+}
+
+fn jit(
+    rel: &str,
+    d: &Directives,
+    c_lib: Option<&CLib>,
+    leak_check: bool,
+) -> Result<Outcome, Failed> {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_entropy"));
     cmd.args([
         "run",
@@ -110,17 +189,38 @@ fn jit(rel: &str, d: &Directives, leak_check: bool) -> Result<Outcome, Failed> {
         "--fuel",
         &d.fuel.unwrap_or(DEFAULT_FUEL).to_string(),
     ]);
+    if let Some(c_lib) = c_lib {
+        cmd.arg("--dylib").arg(&c_lib.dylib);
+    }
     outcome(debug_rc(&mut cmd, leak_check))
 }
 
 /// Builds an executable. If the build fails, its outcome is what gets compared instead.
-fn build(rel: &str, d: &Directives) -> Result<Result<PathBuf, Outcome>, Failed> {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("golden");
-    std::fs::create_dir_all(&dir)?;
-    let exe = dir.join(rel.trim_start_matches("tests/cases/").replace('/', "_"));
-    let exe_arg = exe.to_string_lossy();
-    let rate = d.rate.unwrap_or(2.0).to_string();
-    let build = entropy(&["build", rel, "-o", &exe_arg, "--mutation-rate", &rate])?;
+fn build(
+    rel: &str,
+    d: &Directives,
+    c_lib: Option<&CLib>,
+) -> Result<Result<PathBuf, Outcome>, Failed> {
+    let exe = scratch(rel);
+    if let Some(dir) = exe.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_entropy"));
+    cmd.args([
+        "build",
+        rel,
+        "--mutation-rate",
+        &d.rate.unwrap_or(2.0).to_string(),
+        "-o",
+    ])
+    .arg(&exe);
+    if let Some(c_lib) = c_lib {
+        cmd.arg("-L")
+            .arg(&c_lib.archive_dir)
+            .arg("-l")
+            .arg(&c_lib.name);
+    }
+    let build = outcome(&mut cmd)?;
     if build.exit != 0 {
         return Ok(Err(build));
     }
@@ -203,27 +303,39 @@ fn describe(o: &Outcome) -> String {
 fn run_case(path: &Path, rel: &str) -> Result<(), Failed> {
     let src = std::fs::read_to_string(path)?;
     let d = directives(&src)?;
-    let first = if d.check_only {
-        check(rel)?
+    let ffi = rel.starts_with("tests/cases/ffi/");
+    let c_lib = match &d.c_file {
+        Some(c_file) => Some(compile_c(path, rel, c_file)?),
+        None => None,
+    };
+    let c_lib = c_lib.as_ref();
+    // The first path's output is what gets blessed.
+    let (first_name, first) = if d.check_only {
+        ("check", check(rel)?)
+    } else if ffi {
+        ("jit", jit(rel, &d, c_lib, false)?)
     } else {
-        reference(rel, &src, &d)
+        ("reference", reference(rel, &src, &d))
     };
     let by_hand = rel.contains("/by-hand/");
     if std::env::var_os("UPDATE_GOLDEN").is_some() && !by_hand {
         bless(path, &first)?;
     }
     let expected = read_expected(path);
-    let first_name = if d.check_only { "check" } else { "reference" };
     compare(rel, first_name, &expected, &first)?;
     if d.check_only {
         return Ok(());
     }
-    let out = jit(rel, &d, false)?;
+    let out = if ffi {
+        first
+    } else {
+        jit(rel, &d, c_lib, false)?
+    };
     compare(rel, "jit", &expected, &out)?;
     if out.exit == 0 {
-        no_leaks(rel, "jit", &jit(rel, &d, true)?)?;
+        no_leaks(rel, "jit", &jit(rel, &d, c_lib, true)?)?;
     }
-    match build(rel, &d)? {
+    match build(rel, &d, c_lib)? {
         Err(build) => compare(rel, "build", &expected, &build)?,
         Ok(exe) => {
             let out = aot(&exe, &d, false)?;
@@ -285,12 +397,8 @@ fn main() {
                 "tests/cases/{}",
                 path.strip_prefix(&base).unwrap_or(&path).display()
             );
-            let ffi = std::fs::read_to_string(&path)
-                .ok()
-                .and_then(|src| directives(&src).ok())
-                .is_some_and(|d| d.ffi);
             let name = rel.trim_start_matches("tests/cases/").to_string();
-            Trial::test(name, move || run_case(&path, &rel)).with_ignored_flag(ffi)
+            Trial::test(name, move || run_case(&path, &rel))
         })
         .collect();
     libtest_mimic::run(&args, trials).exit();
