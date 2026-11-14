@@ -3,6 +3,10 @@
 //! This is the only place decay is implemented. The core API here never exits the process. It
 //! returns [`Halt`] instead, so callers decide what stopping means.
 
+#[cfg(feature = "capi")]
+pub mod capi;
+#[cfg(any(test, feature = "capi"))]
+pub mod obj;
 mod rng;
 
 use std::io::{Read, Write};
