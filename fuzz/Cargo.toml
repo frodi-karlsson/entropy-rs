@@ -1,0 +1,24 @@
+[package]
+name = "entropy-fuzz"
+version = "0.0.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4.13"
+entropy-lang-sema = { path = "../crates/entropy-sema" }
+entropy-lang-syntax = { path = "../crates/entropy-syntax" }
+
+# Not part of the main workspace, which builds on stable.
+[workspace]
+
+[[bin]]
+name = "front_end"
+path = "fuzz_targets/front_end.rs"
+test = false
+doc = false
+bench = false
