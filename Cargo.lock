@@ -464,6 +464,7 @@ dependencies = [
  "entropy-lang-syntax",
  "entropy-reference",
  "libtest-mimic",
+ "proptest",
 ]
 
 [[package]]
