@@ -13,9 +13,23 @@ impl Span {
     }
 }
 
-/// A stable diagnostic code such as `E0001`.
+/// A stable diagnostic code such as `E0001`. All codes are listed in [`code`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Code(pub &'static str);
+
+/// Every diagnostic code. Codes are never reused or renumbered.
+pub mod code {
+    use super::Code;
+
+    pub const UNEXPECTED_CHARACTER: Code = Code("E0001");
+    pub const UNTERMINATED_STRING: Code = Code("E0002");
+    pub const UNTERMINATED_CHAR: Code = Code("E0003");
+    pub const UNTERMINATED_COMMENT: Code = Code("E0004");
+    pub const INVALID_ESCAPE: Code = Code("E0005");
+    pub const CHAR_LITERAL_LENGTH: Code = Code("E0006");
+    pub const MALFORMED_NUMBER: Code = Code("E0007");
+    pub const NUMBER_TOO_LARGE: Code = Code("E0008");
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Severity {
