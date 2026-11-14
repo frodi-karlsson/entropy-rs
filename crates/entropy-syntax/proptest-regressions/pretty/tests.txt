@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc c279249e4cb573acb2503af961f54cd52aeb00288ac7b55b151b2be61f0d3970 # shrinks to program = Program { namespace: Ident { name: "a", span: Span { start: 0, end: 0 } }, name: Ident { name: "_", span: Span { start: 0, end: 0 } }, items: [Stmt(Stmt { kind: If { cond: Expr { kind: Number(0.0), span: Span { start: 0, end: 0 } }, body: [Stmt { kind: Assign { name: Ident { name: "a", span: Span { start: 0, end: 0 } }, op: Set, value: Expr { kind: Binary { op: Mul, lhs: Expr { kind: Number(0.0), span: Span { start: 0, end: 0 } }, rhs: Expr { kind: Binary { op: Mul, lhs: Expr { kind: Number(0.0), span: Span { start: 0, end: 0 } }, rhs: Expr { kind: Number(0.0), span: Span { start: 0, end: 0 } } }, span: Span { start: 0, end: 0 } } }, span: Span { start: 0, end: 0 } } }, span: Span { start: 0, end: 0 } }] }, span: Span { start: 0, end: 0 } })], span: Span { start: 0, end: 0 } }
